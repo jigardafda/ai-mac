@@ -50,7 +50,7 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
   const limits = { ...DEFAULT_MIN, ...(WINDOW_SIZES[win.slug] ?? {}) };
 
   // Tell the desktop (dock bounce) while the first build runs; always clear on unmount.
-  const building = phase.kind === "building";
+  const building = phase.kind === "building" || pending !== null; // first build or an in-place update
   useEffect(() => { onBuilding(building); return () => onBuilding(false); }, [building]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { alive.current = true; return () => { alive.current = false; ctrl.current?.abort(); }; }, []);
   useEffect(() => {

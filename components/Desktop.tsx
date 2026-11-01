@@ -43,6 +43,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const [newOpen, setNewOpen] = useState(false);
   const [wish, setWish] = useState("");
   const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState<{ id: number; name: string }[]>([]); // icons shown while an app is being designed
   const [spot, setSpot] = useState<string | null>(null);
   const [spotIdx, setSpotIdx] = useState(0);
   const [ctx, setCtx] = useState<Ctx | null>(null);
@@ -263,22 +264,28 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const activeId = wins.some((w) => w.id === active && w.state === "open") ? active : (wins.filter((w) => w.state === "open").sort((a, b) => b.z - a.z)[0]?.id ?? null);
 
   /* ---------- new app, trash, sign out ---------- */
+  /** Designing the name and icon takes about half a minute. The icon appears on the
+   *  desktop at once with a progress ring, the way the App Store shows a download. */
   async function createApp(e?: React.FormEvent, text = wish) {
     e?.preventDefault();
     const wishText = text.trim();
     if (wishText.length < 4) return;
     setNewOpen(false); setSpot(null); setWish(""); setCreating(true);
-    notify(`Designing an app for “${wishText.slice(0, 60)}${wishText.length > 60 ? "…" : ""}”. It appears on the desktop in about half a minute.`, "New app", "/icons/new-app.png");
+    const pid = nRef.current++;
+    const guess = wishText.replace(/^(a|an|the)\s+/i, "").split(/[\s,.]+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    setPending((l) => [...l, { id: pid, name: guess || "New App" }]);
     try {
       const r = await fetch("/api/apps", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ wish: wishText }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) return notify(j.error || "Could not create the app.", "New app", "/icons/new-app.png");
       await refresh();
-      notify(`${j.name} is on your desktop and opening now. Its first open writes it.`, "New app", "/icons/new-app.png");
       setTimeout(() => window.dispatchEvent(new CustomEvent("aic:open", { detail: j.slug })), 60);
     } catch (err) {
       notify(err instanceof Error ? err.message : "Could not create the app.", "New app", "/icons/new-app.png");
-    } finally { setCreating(false); }
+    } finally {
+      setPending((l) => l.filter((x) => x.id !== pid));
+      setCreating(false);
+    }
   }
   useEffect(() => {
     const h = (e: Event) => open((e as CustomEvent<string>).detail);
@@ -455,9 +462,22 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
               onContextMenu={(e) => { setSelected(a.slug); showCtx(e, appMenuItems(a.slug)); }}
               title={a.name}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={a.icon_url} alt="" width={64} height={64} draggable={false} />
+              <span className={styles.iconArt}>
+                <img src={a.icon_url} alt="" width={64} height={64} draggable={false} className={building.has(a.slug) ? styles.iconDim : ""} />
+                {building.has(a.slug) ? <svg className={styles.ring} viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" /><circle cx="18" cy="18" r="15" className={styles.ringSpin} /></svg> : null}
+              </span>
               <span className={styles.iconLabel}>{a.name}</span>
             </button>
+          ))}
+          {pending.map((x) => (
+            <div key={x.id} className={styles.icon} title="Designing this app">
+              <span className={styles.iconArt}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/new-app.png" alt="" width={64} height={64} draggable={false} className={styles.iconDim} />
+                <svg className={styles.ring} viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" /><circle cx="18" cy="18" r="15" className={styles.ringFill} /></svg>
+              </span>
+              <span className={styles.iconLabel}>{x.name}</span>
+            </div>
           ))}
           <button className={`${styles.icon} ${selected === "new-app" ? styles.iconSelected : ""}`}
             onMouseDown={(e) => { e.stopPropagation(); setSelected("new-app"); }}

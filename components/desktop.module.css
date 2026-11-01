@@ -1251,3 +1251,56 @@
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
+/* ---------- install progress on desktop icons (App Store style) ---------- */
+.iconArt {
+  position: relative;
+  display: inline-block;
+  width: 68px;
+  height: 68px;
+}
+
+.iconDim {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35)) brightness(0.55) saturate(0.6);
+}
+
+.ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.ring circle {
+  fill: rgba(0, 0, 0, 0.35);
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 3;
+}
+
+.ringFill {
+  fill: none !important;
+  stroke: #fff !important;
+  stroke-linecap: round;
+  stroke-dasharray: 94.2;
+  stroke-dashoffset: 94.2;
+  animation: ringFill 36s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+}
+
+@keyframes ringFill {
+  to {
+    stroke-dashoffset: 8;
+  }
+}
+
+.ringSpin {
+  fill: none !important;
+  stroke: #fff !important;
+  stroke-linecap: round;
+  stroke-dasharray: 24 70.2;
+  transform-origin: 50% 50%;
+  animation: spin 1.1s linear infinite;
+}

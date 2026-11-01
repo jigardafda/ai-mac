@@ -205,7 +205,7 @@ function movePlayer(dt){
     if(vx){const n=Math.sign(cy-p.y);if(Math.abs(cy-p.y)<=7&&canStand(oldx,oldy+n*p.speed*dt,'player'))p.y+=n*p.speed*dt}
     if(vy){const n=Math.sign(cx-p.x);if(Math.abs(cx-p.x)<=7&&canStand(oldx+n*p.speed*dt,oldy,'player'))p.x+=n*p.speed*dt}
   }
-  for(const b of game.bombs)if(b.leave){const t=tileOf(p.x,p.y);if(t.x!==b.x||t.y!==b.y)b.leave=false}
+  for(const b of game.bombs)if(b.leave){const r=5.4,lx=Math.floor((p.x-r)/T),rx=Math.floor((p.x+r)/T),ty=Math.floor((p.y-HUD-r)/T),by=Math.floor((p.y-HUD+r)/T);if(b.x<lx||b.x>rx||b.y<ty||b.y>by)b.leave=false}
 }
 function dropOrDetonate(){
   if(state==='title'){titleSel?continueGame():startGame();return}
