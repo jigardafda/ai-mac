@@ -11,6 +11,7 @@ import { Glyph, MenuBar, type Menu, type MenuItem } from "./MenuBar";
 import { ACCENTS, Settings } from "./Settings";
 import { Terminal } from "./Terminal";
 import { Browser } from "./Browser";
+import { Presentation } from "./Presentation";
 import { useAppMenus } from "@/lib/appmenus";
 import styles from "./desktop.module.css";
 
@@ -477,6 +478,8 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
     ? <Settings user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} prefs={prefs} setPrefs={setPrefs} wallpaper={wallpaper} setWallpaper={setWallpaper} dock={dock} setDock={setDock} initialPane={w.pane} onLock={() => setLocked(true)} onSignOut={signOut} onOpenApp={(s) => open(s)} notify={(t, title) => notify(t, title ?? "System Settings", "/icons/settings.png")} />
     : w.slug === "browser"
       ? <Browser prefs={prefs} setPrefs={setPrefs} isMac={isMac} notify={(t) => notify(t, "Safari", "/icons/browser.png")} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
+    : w.slug === "keynote"
+      ? <Presentation isMac={isMac} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} onOpenApp={(s) => open(s)} stats={{ apps: allApps.length, built: apps.filter((a) => a.version).length, versions: apps.reduce((n, a) => n + (a.version ?? 0), 0) }} />
     : w.slug === "terminal"
       ? <Terminal user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} hostname={p("hostname", "AI-Mac")} onOpen={(s) => open(s)} onClose={() => close(w.id)} onTitle={(t) => update(w.id, { title: t })} />
       : null;

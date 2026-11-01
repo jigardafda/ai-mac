@@ -17,6 +17,7 @@ export const WINDOW_SIZES: Record<string, { w: number; h: number; minW?: number;
   settings: { w: 760, h: 600, minW: 640, minH: 440 },
   terminal: { w: 700, h: 440, minW: 420, minH: 240 },
   browser: { w: 1180, h: 760, minW: 640, minH: 400 },
+  keynote: { w: 1240, h: 780, minW: 760, minH: 480 },
 };
 export const DEFAULT_MIN = { minW: 520, minH: 320 };
 
@@ -93,6 +94,7 @@ export const BUILTIN_APPS = [
   { slug: "settings", name: "System Settings", icon: "/icons/settings.png", description: "Appearance, wallpaper, dock, displays, notifications, users, privacy and everything else about this Mac." },
   { slug: "terminal", name: "Terminal", icon: "/icons/terminal.png", description: "A zsh style shell over your apps and their data." },
   { slug: "browser", name: "Safari", icon: "/icons/browser.png", description: "Browse the web. Pages open through AI Mac in a sealed frame." },
+  { slug: "keynote", name: "How It's Made", icon: "/icons/keynote.png", description: "A Keynote-style deck on how AI Mac works: architecture, the generation pipeline, the sandbox, the review loop." },
 ] as const;
 export type BuiltinSlug = (typeof BUILTIN_APPS)[number]["slug"];
 export const isBuiltin = (slug: string): slug is BuiltinSlug => BUILTIN_APPS.some((b) => b.slug === slug);
