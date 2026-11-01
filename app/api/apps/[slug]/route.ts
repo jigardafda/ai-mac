@@ -17,7 +17,10 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!app) return NextResponse.json({ error: "No such app" }, { status: 404 });
   const cur = await getCurrentCode(app.id);
   if (!cur) return NextResponse.json({ error: "Not built yet", app, building: Boolean(getJob(app.id)) }, { status: 404 });
-  return new Response(wrapApp(cur.code), { headers: { "content-type": "text/html; charset=utf-8", "x-aic-version": String(cur.version), "cache-control": "no-store" } });
+  const job = getJob(app.id);
+  return new Response(wrapApp(cur.code), {
+    headers: { "content-type": "text/html; charset=utf-8", "x-aic-version": String(cur.version), "cache-control": "no-store", ...(job && !job.done ? { "x-aic-job": job.kind } : {}) },
+  });
 }
 
 /** Builds (or rebuilds) the app as a server-side job and streams it. A second

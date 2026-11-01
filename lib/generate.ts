@@ -1,5 +1,6 @@
 import { CODE_MODEL, openai } from "./openai";
 import { validateApp } from "./sandbox";
+import { checkApp } from "./check";
 
 const SYSTEM = `You build macOS apps as single HTML documents. They run inside a window on a web desktop called AI Computer that looks exactly like macOS. Your job is to make the app indistinguishable from the real macOS app it is modelled on.
 
@@ -27,7 +28,7 @@ macOS design system (follow it exactly):
 Behaviour rules real users tested and complained about:
 - Pressing Enter in a creation field saves exactly once; losing focus never saves the same draft again; an empty draft row is never counted and disappears when abandoned.
 - Start with no personal-looking sample data. One short welcome item is fine where the real app has one; label it so.
-- Show "Saved" (or an equivalent quiet confirmation) after changes persist, and show an error if a save fails.
+- Apps that keep records or documents show a quiet "Saved" confirmation after changes persist and an error if a save fails; tools without documents (Calculator, drawing boards, players) show no save status at all.
 - Dates in the interface are written with the month as a word (1 Nov 2026, Sun 1 Nov); never numeric month/day orderings. Times as 9:30 AM.
 - The desktop owns Cmd/Ctrl+Space, N, W and M; do not bind them. Copy to clipboard uses navigator.clipboard with a fallback to a hidden textarea and execCommand('copy').
 - Never show a dead-end control: anything that cannot work in this environment (sharing sheets, system integrations) is left out or clearly replaced by what does work (copy, export, download).
@@ -52,38 +53,60 @@ export type GenEvent = { type: "status"; text: string } | { type: "chunk"; text:
 export async function* generateApp(input: { name: string; description: string }): AsyncGenerator<GenEvent> {
   yield { type: "status", text: `Designing ${input.name}` };
   const user = `Build the app "${input.name}".\n\nWhat it does: ${input.description}\n\nReturn the complete HTML document now.`;
-  yield* run([{ role: "system", content: SYSTEM }, { role: "user", content: user }]);
+  yield* run([{ role: "system", content: SYSTEM }, { role: "user", content: user }], input.name);
 }
 
 export async function* improveApp(input: { name: string; description: string; code: string; request: string }): AsyncGenerator<GenEvent> {
   yield { type: "status", text: `Updating ${input.name}` };
   const user = `Here is the current HTML of the app "${input.name}" (${input.description}):\n\n${input.code}\n\nChange request from the user: ${input.request}\n\nApply the change, keep everything else working and keep the stored data format compatible. Return the complete updated HTML document now.`;
-  yield* run([{ role: "system", content: SYSTEM }, { role: "user", content: user }]);
+  yield* run([{ role: "system", content: SYSTEM }, { role: "user", content: user }], input.name);
 }
 
-async function* run(messages: { role: "system" | "user"; content: string }[]): AsyncGenerator<GenEvent> {
-  let out = "";
+async function* run(messages: { role: "system" | "user"; content: string }[], label = "the app"): AsyncGenerator<GenEvent> {
+  let code = "";
   try {
-    const stream = await openai.chat.completions.create({ model: CODE_MODEL, messages, stream: true, max_completion_tokens: 32000 });
-    yield { type: "status", text: "Writing the code" };
-    for await (const part of stream) {
-      const t = part.choices[0]?.delta?.content || "";
-      if (t) {
-        out += t;
-        yield { type: "chunk", text: t };
-      }
-    }
+    code = yield* stream(messages);
   } catch (e) {
     yield { type: "error", text: e instanceof Error ? e.message : "Generation failed" };
     return;
   }
-  const code = stripFences(out);
   const problem = validateApp(code);
   if (problem) {
     yield { type: "error", text: problem };
     return;
   }
+  // Run it once in a headless browser. If it breaks on start, give the model one chance to fix it.
+  yield { type: "status", text: `Checking ${label}` };
+  const problems = await checkApp(code);
+  if (problems.length) {
+    yield { type: "status", text: `Fixing ${problems.length} ${problems.length === 1 ? "problem" : "problems"} found while checking` };
+    const fixPrompt = `Here is the current HTML of ${label}:\n\n${code}\n\nRunning it in a browser produced these problems:\n- ${problems.join("\n- ")}\n\nFix every one of them, keep everything else exactly as it is, and return the complete HTML document now.`;
+    try {
+      const fixed = yield* stream([messages[0], { role: "user", content: fixPrompt }]);
+      if (!validateApp(fixed)) {
+        const again = await checkApp(fixed);
+        if (again.length < problems.length) code = fixed;
+      }
+    } catch {
+      // keep the first version; the window's Fix It bar covers what is left
+    }
+  }
   yield { type: "done", code };
+}
+
+/** Streams one completion, forwarding chunks, and returns the fenced-stripped code. */
+async function* stream(messages: { role: "system" | "user"; content: string }[]): AsyncGenerator<GenEvent, string> {
+  let out = "";
+  const s = await openai.chat.completions.create({ model: CODE_MODEL, messages, stream: true, max_completion_tokens: 32000 });
+  yield { type: "status", text: "Writing the code" };
+  for await (const part of s) {
+    const t = part.choices[0]?.delta?.content || "";
+    if (t) {
+      out += t;
+      yield { type: "chunk", text: t };
+    }
+  }
+  return stripFences(out);
 }
 
 /** Turns a free-text wish into an app definition for the desktop. */
@@ -92,7 +115,7 @@ export async function designApp(wish: string): Promise<{ name: string; slug: str
     model: CODE_MODEL,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: `You turn a user's wish into an app definition for a web desktop. Reply with JSON: {"name": short app name (1 to 2 words), "slug": kebab-case from the name, "description": 2 to 4 sentences describing exactly what the app does and its main screens and features (specific, buildable), "iconPrompt": a short description of a macOS style app icon for it (subject and colours only)}. No markdown.` },
+      { role: "system", content: `You turn a user's wish into an app definition for a web desktop. Reply with JSON: {"name": short app name (1 to 2 words), "slug": kebab-case from the name, "description": a brief for the builder: when the wish is short, 2 to 4 sentences describing exactly what the app does and its main screens and features (specific, buildable); when the wish is detailed, keep every specific requirement it contains, in the user's order, as long as needed (up to about 300 words), "iconPrompt": a short description of a macOS style app icon for it (subject and colours only)}. No markdown.` },
       { role: "user", content: wish },
     ],
   });

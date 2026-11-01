@@ -62,7 +62,13 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
     try {
       const r = await fetch(`/api/apps/${win.slug}`, { cache: "no-store" });
       if (!alive.current) return;
-      if (r.ok) return setPhase({ kind: "ready", html: await r.text(), version: r.headers.get("x-aic-version") || "" });
+      if (r.ok) {
+        setPhase({ kind: "ready", html: await r.text(), version: r.headers.get("x-aic-version") || "" });
+        // An update was already running for this app (before a reload, say): show its progress again.
+        const job = r.headers.get("x-aic-job");
+        if (job === "improve" || job === "build") setTimeout(() => attach(job), 50);
+        return;
+      }
       if (r.status === 404) return build("build");
       setPhase({ kind: "error", text: `Could not load (${r.status})` });
     } catch (e) {
@@ -71,12 +77,15 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win.slug]);
 
+  /** Re-joins a job that is already running on the server; the app stays usable meanwhile. */
+  function attach(kind: "build" | "improve") { void build(kind, undefined, true); }
+
   /** Builds, rebuilds or improves. If the app is already showing, it stays usable while the new version is written. */
-  async function build(kind: "build" | "improve", req?: string) {
+  async function build(kind: "build" | "improve", req?: string, inPlaceOverride?: boolean) {
     ctrl.current?.abort();
     const ac = new AbortController();
     ctrl.current = ac;
-    const inPlace = phase.kind === "ready";
+    const inPlace = inPlaceOverride ?? phase.kind === "ready";
     const p: Progress = { kind, status: kind === "build" ? "Starting" : "Reading the current app", chars: 0, lines: [], started: Date.now() };
     const show = (np: Progress) => (inPlace ? setPending(np) : setPhase({ kind: "building", p: np }));
     const fail = (text: string) => { if (!alive.current) return; if (inPlace) { setPending(null); onNotify(`Update failed: ${text}`); } else setPhase({ kind: "error", text }); };
@@ -180,7 +189,7 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
     const d = drag.current;
     if (!d) return;
     const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
-    if (d.mode === "move") return onChange({ x: Math.max(-d.w + 120, d.x + dx), y: Math.max(menuHeight, d.y + dy) });
+    if (d.mode === "move") return onChange({ x: Math.min(Math.max(0, d.x + dx), window.innerWidth - 120), y: Math.min(Math.max(menuHeight, d.y + dy), window.innerHeight - 40) });
     let { x, y, w, h } = d;
     if (d.mode.includes("e")) w = Math.max(limits.minW, d.w + dx);
     if (d.mode.includes("s")) h = Math.max(limits.minH, d.h + dy);

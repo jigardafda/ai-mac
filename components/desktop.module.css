@@ -615,7 +615,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 9500;
   animation: fadeIn 0.15s;
 }
@@ -810,7 +812,7 @@
 
 .context button {
   height: 22px;
-  padding: 0 10px 0 20px;
+  padding: 0 12px;
   border: 0;
   border-radius: 5px;
   background: none;
@@ -836,7 +838,7 @@
 
 .ctxSep {
   height: 1px;
-  margin: 5px 10px;
+  margin: 5px 9px;
   background: rgba(0, 0, 0, 0.12);
 }
 

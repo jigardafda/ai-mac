@@ -173,17 +173,20 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
   // The desktop falls back to the top-most window when the active one goes away.
   const activeId = wins.some((w) => w.id === active && w.state === "open") ? active : (wins.filter((w) => w.state === "open").sort((a, b) => b.z - a.z)[0]?.id ?? null);
 
+  /** Designing the name and icon takes about half a minute; it runs in the background and the desktop stays usable. */
   async function createApp(e?: React.FormEvent, text = wish) {
     e?.preventDefault();
-    if (creating || text.trim().length < 4) return;
+    const wishText = text.trim();
+    if (wishText.length < 4) return;
+    setNewOpen(false);
+    setSpot(null);
+    setWish("");
     setCreating(true);
+    notify(`Designing an app for “${wishText.slice(0, 60)}${wishText.length > 60 ? "…" : ""}”. It appears on the desktop in about half a minute.`, "New app", "/icons/new-app.png");
     try {
-      const r = await fetch("/api/apps", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ wish: text.trim() }) });
+      const r = await fetch("/api/apps", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ wish: wishText }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) return notify(j.error || "Could not create the app.", "New app", "/icons/new-app.png");
-      setNewOpen(false);
-      setSpot(null);
-      setWish("");
       await refresh();
       notify(`${j.name} is on your desktop and opening now. Its first open writes it.`, "New app", "/icons/new-app.png");
       setTimeout(() => window.dispatchEvent(new CustomEvent("aic:open", { detail: j.slug })), 60);
@@ -269,7 +272,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
     if (a?.version) items.push({ label: "Improve…", action: () => { open(slug); setTimeout(() => winCmd("improve", { slug }), 450); } });
     items.push({ label: inDock ? "Remove from Dock" : "Keep in Dock", action: () => setDock((d) => (inDock ? d.filter((s) => s !== slug) : [...d, slug])) });
     if (fromDock && running) items.push({ label: "Quit", action: () => openWins.filter((w) => w.slug === slug).forEach((w) => close(w.id)) });
-    if (!fromDock) items.push("sep", { label: "Move to Trash", disabled: isDefault(slug), hint: isDefault(slug) ? "default app" : undefined, action: () => removeApp(slug) });
+    if (!fromDock && !isDefault(slug)) items.push("sep", { label: "Move to Trash", action: () => removeApp(slug) });
     return items;
   };
   const showCtx = (e: React.MouseEvent, items: MenuItem[]) => {
@@ -313,8 +316,13 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
       ...(openWins.length ? ["sep" as const, ...openWins.map((w) => ({ label: w.title, checked: w.id === activeId, hint: w.state === "min" ? "minimised" : undefined, action: () => focus(w.id) }))] : []),
     ] },
     { key: "help", title: "Help", items: [
-      { label: "AI Computer Help", action: () => setAbout(true) },
-      { label: "Keyboard Shortcuts", action: () => notify(`${K}Space Spotlight, ${K}N new app, ${K}W close window, ${K}M minimise. Hover a window's title bar for Improve.`, "Help") },
+      { label: "About AI Computer", action: () => setAbout(true) }, "sep",
+      { label: "Open an app", action: () => notify("Double-click an icon on the desktop, click it in the Dock, or press " + K + "Space and type its name. The first open writes the app; after that it opens at once.", "Help") },
+      { label: "Make a new app", action: () => notify("Double-click New app (or press " + K + "N), describe what you want in a sentence, and it joins the desktop with its own icon.", "Help") },
+      { label: "Change an app", action: () => notify("Hover the window's title bar and click the sparkle, or use the app menu. Describe the change; the app keeps working while the new version is written, and your records are kept.", "Help") },
+      { label: "Keep an app in the Dock", action: () => notify("Right-click its icon on the desktop or in the Dock and choose Keep in Dock. Remove from Dock undoes it.", "Help") },
+      { label: "Recover an app from the Trash", action: () => notify("Click the Trash in the Dock and choose Put Back next to the app. Its records come back with it.", "Help") }, "sep",
+      { label: "Keyboard Shortcuts", action: () => notify(`${K}Space Spotlight, ${K}N new app, ${K}W close window, ${K}M minimise, Escape closes dialogs.`, "Help") },
     ] },
   ];
   const rightMenus: Menu[] = [
@@ -338,7 +346,9 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
   }, [apps, dock, wins, building]);
 
   const q = (spot ?? "").trim().toLowerCase();
-  const spotMatches = spot !== null && q ? [...apps.filter((a) => a.name.toLowerCase().startsWith(q)), ...apps.filter((a) => !a.name.toLowerCase().startsWith(q) && (a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)))] : [];
+  // Names first; descriptions only when no name matches, so "notes" does not list every app that mentions notes.
+  const byName = spot !== null && q ? [...apps.filter((a) => a.name.toLowerCase().startsWith(q)), ...apps.filter((a) => !a.name.toLowerCase().startsWith(q) && a.name.toLowerCase().includes(q))] : [];
+  const spotMatches = byName.length || !q ? byName : apps.filter((a) => a.description.toLowerCase().includes(q));
   const spotSel = Math.min(spotIdx, Math.max(0, spotMatches.length - 1));
 
   return (
