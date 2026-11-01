@@ -19,6 +19,96 @@ This is an experiment, not a product.
 - **Caching**: the first open builds version 1 and stores it. Later opens fetch `GET /api/apps/<slug>` and get the stored HTML. "Improve" and "Rebuild" create new versions; `/api/apps/<slug>/versions` lists them and can roll back.
 - **Images**: the wallpaper and the default icons were generated once with the image model and live in `public/`. Icons for new apps are generated when the app is created.
 
+## The life of an app
+
+```
+double-click icon
+      |
+      v
+GET /api/apps/<slug> ---- version stored? ----yes----> HTML from your cache (milliseconds)
+      |                                                       |
+      no                                                      v
+      |                                              <iframe sandbox="allow-scripts" srcdoc>
+      v                                                       ^
+template in templates/<slug>.html?  --yes--> installed as v1 --+
+      |
+      no
+      v
+build job (lib/jobs.ts) --> model streams the code --> validate --> run in headless Chromium
+                                  |                                        |
+                                  v                                        v
+                      code appears in the window            problems? one automatic fix pass
+                                                                           |
+                                                                           v
+                                                           stored as version N, app opens
+```
+
+1. **Open.** The desktop asks the API for the app. If a version is stored, its HTML comes straight back and renders in a sandboxed frame.
+2. **Install or build.** With no stored version, a reviewed template is installed if one ships for that slug; otherwise a build job starts. "New app" first asks the model to turn your sentence into a name, slug, brief and icon prompt (`designApp`).
+3. **Stream.** The model writes one HTML document and the chunks stream to the window as they arrive, so you watch the app being written.
+4. **Validate.** `validateApp` rejects documents that are too small or too large, have no markup, reach for `parent.location`, `top.location`, `window.top` or `document.cookie`, or load an external `<script src>`.
+5. **Check.** `lib/check.ts` loads the app in headless Chromium with a stubbed `window.aic`, waits about two seconds, and reports uncaught exceptions, console errors, a blank page and horizontal overflow at 1000px and 560px wide.
+6. **Fix.** If the check found problems, the model gets one chance to fix them. The fixed version is kept only if it has fewer problems than the first.
+7. **Store.** The result is saved as a new row in `app_versions` and becomes the app's current version.
+
+### Builds are jobs, not requests
+
+A build runs as a server-side job that outlives the HTTP request that started it (`lib/jobs.ts`). Close the window, reload the page or open the same app twice and you attach to the same job, which replays what has been written so far and then follows it live. A build cannot be lost or started twice. Finished jobs stay attachable for 30 seconds for late reloads, and a job that has not finished after 12 minutes is treated as abandoned. Jobs live in process memory, so this assumes one server instance.
+
+### Versions
+
+Every build, "Improve" and "Rebuild From Scratch" writes a new version with the prompt and model that produced it. `GET /api/apps/<slug>/versions` lists them and can roll back, so an improvement that goes wrong costs one click.
+
+## The model's rulebook
+
+The system prompt in `lib/generate.ts` is most of the product. It tells the model to return one complete HTML document with everything inline, no frameworks and no external scripts, and to behave like a real macOS app: system font and 13px body text, the standard control sizes and colours, SF Symbols-style inline SVG icons, subtle hover and press motion, sidebars that collapse under 760px, and no `alert`, `confirm` or `prompt`. It also carries rules learnt from user testing, such as saving once on Enter, showing a quiet "Saved" confirmation, never showing a dead-end control, and writing dates with the month as a word.
+
+## Data model
+
+Postgres holds everything. The schema is created on first use (`ensureSchema` in `lib/db.ts`), and every statement is idempotent, so there are no migrations to run.
+
+| Table | Holds |
+| --- | --- |
+| `users` | email and a bcrypt password hash |
+| `apps` | one row per user per app: slug, name, brief, icon, dock position, current version, soft-delete time |
+| `app_versions` | the generated HTML for each version, with the prompt and model that wrote it |
+| `app_data` | per-app key and JSON value, the storage behind `aic.storage` |
+| `user_settings` | wallpaper, dock contents and preferences |
+
+Everything is keyed by user, so every account has its own desktop, its own copies of the apps and its own data. Sessions are a signed cookie (`jose`), and passwords are hashed with `bcryptjs`.
+
+## Security model
+
+Generated code is untrusted code, so the design assumes the model can write something bad.
+
+- **No origin.** Apps run in `<iframe sandbox="allow-scripts">` loaded through `srcdoc`. Without `allow-same-origin` the frame has an opaque origin: it cannot read your cookies, call the API as you, or touch the desktop page.
+- **A narrow door.** The only way out is the `window.aic` bridge over `postMessage`. The host answers each request through the normal authenticated API, scoped to the signed-in user and that one app.
+- **A validator and a runtime check** catch the obvious escapes and the obvious breakage before an app is stored.
+- **The built-in browser is a proxy** (`app/api/browse/route.ts`). It refuses non-http(s) addresses, addresses with credentials, `localhost`, `.local` and `.internal` names, and any host that resolves to a private or link-local address. It caps responses at 4 MB, strips frame-blocking headers, and runs the page in its own sandboxed frame with an opaque origin so page scripts cannot reach your session.
+- **Secrets stay server-side.** The OpenAI key is only ever read by the server. Apps get a short answer from `aic.ask`, never a key.
+
+This is still an experiment. The validator is a filter, not a proof. Do not point it at anything you cannot afford to lose.
+
+## The built-in apps
+
+Besides the generated apps, the desktop has a set of real, hand-written components in `components/`:
+
+| App | What it is |
+| --- | --- |
+| Finder | browses your files, a small file system stored in Postgres (`lib/files.ts`), with the usual macOS folders and a Trash |
+| TextEdit | edits the text files in that file system |
+| Terminal | lists and reads the same files with `ls`, `cat` and friends |
+| Safari | the proxy-backed browser, with Reader mode, find and zoom |
+| Settings | wallpaper, dock and appearance preferences |
+| Activity Monitor | shows running windows and builds |
+| Presentation | a short deck about the project |
+
+The menu bar, dock (with magnification and zoom-from-icon), window chrome and traffic lights are in `components/` too.
+
+## Deploying
+
+It runs as one Next.js service plus Postgres, for example on Railway: set `DATABASE_URL`, `SESSION_SECRET` and `OPENAI_API_KEY` as variables, deploy from this repository, and the schema creates itself on first request. Use Node 24 or newer (`.node-version` pins 26). Headless Chromium for the runtime check is optional: if Playwright cannot launch a browser, the check is skipped rather than blocking the build.
+
 ## Running it
 
 ```
@@ -38,9 +128,9 @@ Environment:
 | `DATABASE_URL` | Postgres connection string |
 | `SESSION_SECRET` | signs the session cookie |
 | `OPENAI_API_KEY` | used for code, chat and images |
-| `CODE_MODEL` | default `gpt-5.5` |
-| `CHAT_MODEL` | default `gpt-5.4-mini`, used by `aic.ask` |
-| `IMAGE_MODEL` | default `gpt-image-2`, used for new app icons |
+| `AIC_CODE_MODEL` | default `gpt-5.5` |
+| `AIC_CHAT_MODEL` | default `gpt-5.4-mini`, used by `aic.ask` |
+| `AIC_IMAGE_MODEL` | default `gpt-image-2`, used for new app icons |
 | `DEV_ORIGINS` | comma separated hosts allowed to reach the dev server |
 
 ## Layout
