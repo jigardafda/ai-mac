@@ -10,6 +10,7 @@ import { Dock, type DockEntry } from "./Dock";
 import { Glyph, MenuBar, type Menu, type MenuItem } from "./MenuBar";
 import { ACCENTS, Settings } from "./Settings";
 import { Terminal } from "./Terminal";
+import { Browser } from "./Browser";
 import styles from "./desktop.module.css";
 
 export type WinState = "open" | "closing" | "minPending" | "minimising" | "min";
@@ -97,6 +98,18 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
     const mo = new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n instanceof HTMLElement) { quiet(n); if (n.matches("input, textarea, form")) n.setAttribute("autocomplete", "off"); } })));
     mo.observe(document.body, { childList: true, subtree: true });
     return () => mo.disconnect();
+  }, []);
+
+  // Desktops made before Safari, Terminal and System Settings existed get them in the dock once.
+  useEffect(() => {
+    if (initialPrefs.dockV2) return;
+    const t = setTimeout(() => setDockState((d) => {
+      const next = [...(d.includes("browser") ? [] : ["browser"]), ...d, ...(d.includes("terminal") ? [] : ["terminal"]), ...(d.includes("settings") ? [] : ["settings"])];
+      fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ dock_slugs: next, prefs: { dockV2: true } }) }).catch(() => {});
+      return next;
+    }), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ---------- clock ---------- */
@@ -451,6 +464,8 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const rootStyle = { backgroundImage: bg, "--accent": accent, zoom: p("largerText", false) || p<string>("resolution", "default") === "larger" ? 1.12 : p<string>("resolution", "default") === "more" ? 0.9 : 1 } as React.CSSProperties;
   const builtinContent = (w: Win) => w.slug === "settings"
     ? <Settings user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} prefs={prefs} setPrefs={setPrefs} wallpaper={wallpaper} setWallpaper={setWallpaper} dock={dock} setDock={setDock} initialPane={w.pane} onLock={() => setLocked(true)} onSignOut={signOut} onOpenApp={(s) => open(s)} notify={(t, title) => notify(t, title ?? "System Settings", "/icons/settings.png")} />
+    : w.slug === "browser"
+      ? <Browser onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
     : w.slug === "terminal"
       ? <Terminal user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} hostname={p("hostname", "AI-Mac")} onOpen={(s) => open(s)} onClose={() => close(w.id)} onTitle={(t) => update(w.id, { title: t })} />
       : null;

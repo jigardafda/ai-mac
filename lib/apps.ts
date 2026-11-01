@@ -19,7 +19,7 @@ export async function seedDefaultApps(userId: number) {
       values (${userId}, ${a.slug}, ${a.name}, ${a.description}, ${a.icon}, ${i})
       on conflict (user_id, slug) do nothing`;
   }
-  await sql`insert into user_settings (user_id, dock_slugs) values (${userId}, ${[...DEFAULT_APPS.slice(0, 5).map((a) => a.slug), "settings"]})
+  await sql`insert into user_settings (user_id, dock_slugs) values (${userId}, ${["browser", ...DEFAULT_APPS.slice(0, 5).map((a) => a.slug), "terminal", "settings"]})
     on conflict (user_id) do nothing`;
 }
 
