@@ -66,7 +66,7 @@ input,textarea,[contenteditable]{user-select:text}
 *:hover>::-webkit-scrollbar-thumb,*:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.28);background-clip:padding-box}
 /* AppKit controls */
 input,select,textarea,button{font:inherit;color:inherit;max-width:100%;min-width:0}
-input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select,textarea{appearance:none;-webkit-appearance:none;height:28px;padding:0 9px;border:1px solid rgba(0,0,0,.14);border-radius:6px;background:#fff;box-shadow:inset 0 .5px 1px rgba(0,0,0,.06);outline:none;transition:box-shadow .12s,border-color .12s}
+input:where(:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file])),select,textarea{appearance:none;-webkit-appearance:none;height:28px;padding:0 9px;border:1px solid rgba(0,0,0,.14);border-radius:6px;background:#fff;box-shadow:inset 0 .5px 1px rgba(0,0,0,.06);outline:none;transition:box-shadow .12s,border-color .12s}
 textarea{height:auto;min-height:64px;padding:6px 9px;line-height:1.4;resize:vertical}
 select{padding-right:26px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><rect x='1' y='1' width='14' height='14' rx='4' fill='%230a60ff'/><path d='M5 6.6l3-3 3 3M5 9.4l3 3 3-3' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 5px center;background-size:16px 16px}
 input:focus,select:focus,textarea:focus{border-color:#007aff;box-shadow:0 0 0 3px rgba(0,122,255,.3)}

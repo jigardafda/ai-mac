@@ -19,3 +19,82 @@ input,
 textarea {
   font: inherit;
 }
+
+/* AppKit controls for the shell itself (System Settings, dialogs, Spotlight).
+   Generated apps get the same rules through the sandbox baseline. */
+input:where(:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file])),
+select,
+textarea {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 0.5px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: inset 0 0.5px 1px rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.85);
+  outline: none;
+  transition: box-shadow 0.12s, border-color 0.12s;
+}
+
+textarea {
+  height: auto;
+  padding: 6px 8px;
+  line-height: 1.4;
+}
+
+/* macOS pop-up button: white bezel, blue square with up and down chevrons at the right */
+select {
+  padding-right: 26px;
+  background: #fff
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><rect x='1' y='1' width='14' height='14' rx='4' fill='%230a60ff'/><path d='M5 6.6l3-3 3 3M5 9.4l3 3 3-3' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    no-repeat right 3px center / 16px 16px;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 0.5px 1px rgba(0, 0, 0, 0.12);
+  cursor: default;
+}
+
+select:active {
+  filter: brightness(0.95);
+}
+
+input:where(:not([type=checkbox]):not([type=radio])):focus,
+select:focus,
+textarea:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(60, 60, 67, 0.45);
+}
+
+input[type=checkbox],
+input[type=radio] {
+  accent-color: #0a60ff;
+}
+
+input[type=range] {
+  accent-color: #0a60ff;
+}
+
+/* Dark appearance */
+[data-theme="dark"] input:where(:not([type=checkbox]):not([type=radio]):not([type=range])),
+[data-theme="dark"] textarea {
+  background: #1c1c1e;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] select {
+  background-color: #3a3a3c;
+  border-color: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: rgba(235, 235, 245, 0.4);
+}
