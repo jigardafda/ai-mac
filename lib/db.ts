@@ -2,7 +2,7 @@ import postgres from "postgres";
 
 // One connection pool per process. Next's dev server reloads modules, so the
 // pool is parked on globalThis to avoid leaking connections on every change.
-const g = globalThis as unknown as { __aicSql?: ReturnType<typeof postgres>; __aicSchema?: Promise<void> };
+const g = globalThis as unknown as { __aicSql?: ReturnType<typeof postgres>; __aicSchema?: Promise<void>; __aicSchemaText?: string };
 
 export const sql =
   g.__aicSql ??
@@ -49,10 +49,15 @@ create table if not exists user_settings (
   wallpaper_url text,
   dock_slugs text[] not null default '{}'
 );
+alter table apps add column if not exists deleted_at timestamptz;
 `;
 
-/** Applies the schema once per process. Every statement is idempotent. */
+/** Applies the schema once per process, and again whenever it changes under a
+ *  running dev server. Every statement is idempotent. */
 export function ensureSchema(): Promise<void> {
-  if (!g.__aicSchema) g.__aicSchema = sql.unsafe(SCHEMA).then(() => undefined);
+  if (!g.__aicSchema || g.__aicSchemaText !== SCHEMA) {
+    g.__aicSchemaText = SCHEMA;
+    g.__aicSchema = sql.unsafe(SCHEMA).then(() => undefined);
+  }
   return g.__aicSchema;
 }

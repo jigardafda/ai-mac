@@ -78,6 +78,7 @@
 .window {
   position: absolute;
   display: flex;
+  container-type: inline-size;
   flex-direction: column;
   border-radius: 11px;
   overflow: hidden;
@@ -289,7 +290,7 @@
 /* macOS push buttons */
 .bezel,
 .bezelDefault {
-  height: 24px;
+  height: 28px;
   min-width: 72px;
   padding: 0 12px;
   border: 0.5px solid rgba(0, 0, 0, 0.18);
@@ -317,6 +318,12 @@
 .bezel:disabled,
 .bezelDefault:disabled {
   opacity: 0.45;
+}
+
+.bezelDefault:disabled {
+  background: linear-gradient(#fff, #f3f3f3);
+  border-color: rgba(0, 0, 0, 0.18);
+  color: rgba(0, 0, 0, 0.85);
 }
 
 .body {
@@ -395,7 +402,8 @@
 
 .codeCard {
   width: min(680px, 100%);
-  margin-top: 12px;
+  max-height: 0;
+  margin-top: 0;
   border-radius: 10px;
   overflow: hidden;
   background: #1e1e24;
@@ -406,6 +414,8 @@
 }
 
 .codeCardShown {
+  max-height: 240px;
+  margin-top: 10px;
   opacity: 1;
   transform: none;
 }
@@ -466,9 +476,137 @@
   animation: dropIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.resizeE { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: ew-resize; touch-action: none; }
-.resizeS { position: absolute; left: 0; bottom: -3px; width: 100%; height: 7px; cursor: ns-resize; touch-action: none; }
-.resizeSE { position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; }
+.rz { position: absolute; touch-action: none; z-index: 2; }
+.rzN { top: -3px; left: 10px; right: 10px; height: 7px; }
+.rzS { bottom: -3px; left: 10px; right: 10px; height: 7px; }
+.rzE { right: -3px; top: 10px; bottom: 10px; width: 7px; }
+.rzW { left: -3px; top: 10px; bottom: 10px; width: 7px; }
+.rzNE { top: -3px; right: -3px; width: 16px; height: 16px; }
+.rzNW { top: -3px; left: -3px; width: 16px; height: 16px; }
+.rzSE { bottom: -3px; right: -3px; width: 16px; height: 16px; }
+.rzSW { bottom: -3px; left: -3px; width: 16px; height: 16px; }
+
+/* An update written while the current version stays usable */
+.updating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #eef4ff;
+  border-bottom: 1px solid rgba(10, 96, 255, 0.2);
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.8);
+  animation: dropIn 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.updating .spinner {
+  margin: 0;
+}
+
+.updating em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: rgba(60, 60, 67, 0.6);
+}
+
+.updatingHint {
+  margin-left: auto;
+  color: rgba(60, 60, 67, 0.6);
+}
+
+@container (max-width: 640px) {
+  .updatingHint {
+    display: none;
+  }
+}
+
+.stages {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.55);
+  text-align: left;
+}
+
+.stages li {
+  position: relative;
+  padding: 3px 0 3px 20px;
+}
+
+.stages li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(60, 60, 67, 0.3);
+}
+
+.stageNow {
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 600;
+}
+
+.stageNow::before {
+  border-color: #0a60ff !important;
+  background: radial-gradient(circle, #0a60ff 40%, transparent 45%);
+}
+
+.stageDone {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.stageDone::before {
+  background: #34c759;
+  border-color: #34c759 !important;
+}
+
+.linkBtn {
+  margin-top: 4px;
+  border: 0;
+  background: none;
+  color: #0a60ff;
+  font-size: 12px;
+  cursor: default;
+}
+
+.titlebarCustom {
+  border-bottom-color: transparent;
+}
+
+.titlebarCustom .lights button {
+  border-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+.trashList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 40vh;
+  overflow: auto;
+  margin-top: 6px;
+}
+
+.trashRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+
+.trashRow img {
+  border-radius: 7px;
+}
+
+.trashRow span {
+  flex: 1;
+}
 
 /* ---------- Sheets, alerts, Spotlight ---------- */
 .sheetBack {
@@ -477,7 +615,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.3);
   z-index: 9500;
   animation: fadeIn 0.15s;
 }
@@ -491,10 +629,8 @@
   gap: 8px;
   padding: 20px 20px 18px;
   border-radius: 12px;
-  background: rgba(236, 236, 236, 0.92);
-  backdrop-filter: blur(60px) saturate(1.8);
-  -webkit-backdrop-filter: blur(60px) saturate(1.8);
-  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 24px 70px rgba(0, 0, 0, 0.45);
+  background: rgba(238, 238, 240, 0.985);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 18px 50px rgba(0, 0, 0, 0.35);
   color: rgba(0, 0, 0, 0.85);
   animation: popIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -534,7 +670,7 @@
 
 .alert p {
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
   text-align: center;
   color: rgba(0, 0, 0, 0.7);
@@ -570,12 +706,22 @@
   margin-top: 10px;
 }
 
+.spotBack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 18vh;
+  z-index: 9500;
+}
+
 .spotlight {
   width: 680px;
   max-width: 92vw;
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(236, 236, 236, 0.9);
+  background: rgba(240, 240, 242, 0.96);
   backdrop-filter: blur(60px) saturate(1.8);
   -webkit-backdrop-filter: blur(60px) saturate(1.8);
   box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 24px 70px rgba(0, 0, 0, 0.45);
@@ -653,11 +799,11 @@
   display: flex;
   flex-direction: column;
   padding: 5px;
-  border-radius: 8px;
-  background: rgba(246, 246, 246, 0.86);
-  backdrop-filter: blur(60px) saturate(2);
-  -webkit-backdrop-filter: blur(60px) saturate(2);
-  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 12px 36px rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  background: rgba(240, 240, 242, 0.94);
+  backdrop-filter: blur(40px) saturate(1.4);
+  -webkit-backdrop-filter: blur(40px) saturate(1.4);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.25);
   z-index: 9800;
   animation: fadeIn 0.08s;
 }
@@ -674,9 +820,18 @@
   cursor: default;
 }
 
-.context button:hover {
+.context button:hover:not(:disabled) {
   background: #0a60ff;
   color: #fff;
+}
+
+.context button:disabled {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.context button small {
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 .ctxSep {
@@ -712,6 +867,11 @@
   font-size: 13px;
   animation: noticeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: auto;
+  cursor: default;
+}
+
+.notice:hover {
+  background: rgba(250, 250, 250, 0.9);
 }
 
 .notice img {

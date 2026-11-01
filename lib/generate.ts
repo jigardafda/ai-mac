@@ -21,6 +21,16 @@ macOS design system (follow it exactly):
 - Icons: inline SVG that imitates SF Symbols: 16px, stroke 1.6, round caps and joins, currentColor. No emoji as UI icons.
 - Motion and micro-interactions, everywhere, subtle: hover and press states (120ms), pressed buttons scale(0.97), selection fills that fade, checkboxes that animate their fill, panels and popovers that fade and scale from 0.96 over 160ms with cubic-bezier(0.2,0.8,0.2,1), list items that slide in on add and collapse on delete, progress bars that ease. Nothing should jump or flash.
 - When the brief names a real macOS app, reproduce its layout, pane structure, toolbar contents, colours, typography, spacing and iconography as faithfully as you can from memory, and use the same words that app uses for its features.
+- If your top region is dark or coloured, call aic.setTitlebar(background, foreground) once on start so the host title bar continues your surface (Calculator: '#1c1c1e' and '#fff'; a gradient app passes its top colour).
+- Sizes: lay out well from 520px wide and 320px tall; collapse sidebars under 760px wide instead of clipping. Never show horizontal scrollbars.
+
+Behaviour rules real users tested and complained about:
+- Pressing Enter in a creation field saves exactly once; losing focus never saves the same draft again; an empty draft row is never counted and disappears when abandoned.
+- Start with no personal-looking sample data. One short welcome item is fine where the real app has one; label it so.
+- Show "Saved" (or an equivalent quiet confirmation) after changes persist, and show an error if a save fails.
+- Dates in the interface are written with the month as a word (1 Nov 2026, Sun 1 Nov); never numeric month/day orderings. Times as 9:30 AM.
+- The desktop owns Cmd/Ctrl+Space, N, W and M; do not bind them. Copy to clipboard uses navigator.clipboard with a fallback to a hidden textarea and execCommand('copy').
+- Never show a dead-end control: anything that cannot work in this environment (sharing sheets, system integrations) is left out or clearly replaced by what does work (copy, export, download).
 
 Host API, already available as window.aic (all functions return Promises):
 - aic.storage.get(key) -> value or null; aic.storage.set(key, value) -> saves JSON-serialisable value; aic.storage.keys() -> string[]. This is the ONLY persistence. Do not use localStorage or cookies (they are not available). Load state on start and save on every change (debounce typing).

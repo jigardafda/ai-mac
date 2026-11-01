@@ -14,7 +14,9 @@ export const BRIDGE_SCRIPT = `
     });
   }
   window.addEventListener('message', function (e) {
-    var m = e.data; if (!m || !m.aic || !pending[m.id]) return;
+    var m = e.data; if (!m || !m.aic) return;
+    if (m.command === 'exec') { try { document.execCommand(m.name); } catch (err) {} return; }
+    if (!pending[m.id]) return;
     var p = pending[m.id]; delete pending[m.id];
     m.error ? p.reject(new Error(m.error)) : p.resolve(m.result);
   });
@@ -27,9 +29,19 @@ export const BRIDGE_SCRIPT = `
     ask: function (prompt, options) { return call('ai.ask', { prompt: prompt, options: options || {} }); },
     open: function (slug) { return call('app.open', { slug: slug }); },
     setTitle: function (title) { return call('window.title', { title: title }); },
+    setTitlebar: function (background, foreground) { return call('window.titlebar', { background: background, foreground: foreground }); },
     notify: function (text) { return call('notify', { text: text }); }
   };
   window.addEventListener('error', function (e) { parent.postMessage({ aic: true, event: 'error', message: String(e.message) }, '*'); });
+  // The desktop owns a few global shortcuts and needs to know when the app is clicked.
+  document.addEventListener('keydown', function (e) {
+    var mod = e.ctrlKey || e.metaKey;
+    if (mod && (e.key === ' ' || e.key === 'n' || e.key === 'N' || e.key === 'w' || e.key === 'W' || e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      parent.postMessage({ aic: true, event: 'key', key: e.key, ctrl: e.ctrlKey, meta: e.metaKey }, '*');
+    }
+  }, true);
+  document.addEventListener('pointerdown', function () { parent.postMessage({ aic: true, event: 'focus' }, '*'); }, true);
 })();
 </script>`;
 

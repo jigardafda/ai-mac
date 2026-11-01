@@ -18,7 +18,7 @@ const REACH = 2.6; // how many icons either side feel the cursor
 
 /** The macOS dock: translucent bar, icons that magnify around the cursor, tooltips,
  *  running dots, a bounce while an app is being built, minimised windows on the right. */
-export function Dock({ entries, onApp, onMin, onNew, onTrash }: { entries: DockEntry[]; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void }) {
+export function Dock({ entries, onApp, onMin, onNew, onTrash, onContext }: { entries: DockEntry[]; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void; onContext: (e: React.MouseEvent, entry: DockEntry) => void }) {
   const [mouseX, setMouseX] = useState<number | null>(null);
   const el = useRef<HTMLElement>(null);
 
@@ -43,7 +43,7 @@ export function Dock({ entries, onApp, onMin, onNew, onTrash }: { entries: DockE
       {entries.map((e, i) => {
         if (e.kind === "sep") return <span key={`sep-${i}`} className={styles.sep} />;
         const s = size(i);
-        const common = { className: styles.item, style: { width: s, height: s } as React.CSSProperties };
+        const common = { className: styles.item, style: { width: s, height: s } as React.CSSProperties, onContextMenu: (ev: React.MouseEvent) => { ev.preventDefault(); onContext(ev, e); } };
         if (e.kind === "new") {
           return (
             <button key="new" {...common} onClick={onNew} aria-label="New app" data-dock="new-app">

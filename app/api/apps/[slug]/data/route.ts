@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { getApp, getData, listKeys, setData } from "@/lib/apps";
+import { deleteData, getApp, getData, listKeys, setData } from "@/lib/apps";
 
 type Ctx = { params: Promise<{ slug: string }> };
 const MAX_VALUE = 1_000_000; // 1 MB of JSON per key is plenty for these apps
@@ -24,6 +24,8 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (text.length > MAX_VALUE) return NextResponse.json({ error: "Too much data for one key" }, { status: 413 });
   const { key, value } = JSON.parse(text);
   if (typeof key !== "string" || !key) return NextResponse.json({ error: "key required" }, { status: 400 });
-  await setData(app.id, key, value ?? null);
+  // Setting null (or undefined) removes the key; jsonb cannot store SQL null.
+  if (value === null || value === undefined) await deleteData(app.id, key);
+  else await setData(app.id, key, value);
   return NextResponse.json({ ok: true });
 }

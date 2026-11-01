@@ -13,6 +13,21 @@ export function MenuBar({ left, right, clock }: { left: Menu[]; right: Menu[]; c
   const [closing, setClosing] = useState<string | null>(null);
   const [blink, setBlink] = useState<{ key: string; i: number; on: boolean } | null>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const later = (fn: () => void, ms: number) => { timers.current.push(setTimeout(fn, ms)); };
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  useEffect(() => clearTimers, []);
+
+
+  function close() {
+    if (!open) return;
+    const k = open;
+    clearTimers(); // a pending selection dies with the menu
+    setBlink(null);
+    setClosing(k);
+    setOpen(null);
+    later(() => setClosing((c) => (c === k ? null : c)), 160);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -24,21 +39,13 @@ export function MenuBar({ left, right, clock }: { left: Menu[]; right: Menu[]; c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  function close() {
-    if (!open) return;
-    const k = open;
-    setClosing(k);
-    setOpen(null);
-    setTimeout(() => setClosing((c) => (c === k ? null : c)), 160);
-  }
-
   function choose(key: string, i: number, item: Exclude<MenuItem, "sep">) {
-    if (item.disabled) return;
+    if (item.disabled || blink) return;
     // macOS blinks the item twice before the menu goes away
     setBlink({ key, i, on: false });
-    setTimeout(() => setBlink({ key, i, on: true }), 60);
-    setTimeout(() => setBlink({ key, i, on: false }), 120);
-    setTimeout(() => { setBlink(null); close(); item.action?.(); }, 200);
+    later(() => setBlink({ key, i, on: true }), 60);
+    later(() => setBlink({ key, i, on: false }), 120);
+    later(() => { setBlink(null); setClosing(key); setOpen(null); later(() => setClosing((c) => (c === key ? null : c)), 160); item.action?.(); }, 200);
   }
 
   const render = (m: Menu) => {

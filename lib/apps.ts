@@ -28,7 +28,30 @@ export async function listApps(userId: number): Promise<AppRow[]> {
   return sql<AppRow[]>`
     select a.id, a.slug, a.name, a.description, a.icon_url, a.position, a.current_version_id, v.version
     from apps a left join app_versions v on v.id = a.current_version_id
-    where a.user_id = ${userId} order by a.position, a.id`;
+    where a.user_id = ${userId} and a.deleted_at is null order by a.position, a.id`;
+}
+
+/** Apps the user moved to the Trash, newest first. */
+export async function listTrash(userId: number): Promise<AppRow[]> {
+  await ensureSchema();
+  return sql<AppRow[]>`
+    select a.id, a.slug, a.name, a.description, a.icon_url, a.position, a.current_version_id, v.version
+    from apps a left join app_versions v on v.id = a.current_version_id
+    where a.user_id = ${userId} and a.deleted_at is not null order by a.deleted_at desc`;
+}
+
+export async function restoreApp(userId: number, slug: string) {
+  await sql`update apps set deleted_at = null where user_id = ${userId} and slug = ${slug}`;
+}
+
+export async function emptyTrash(userId: number) {
+  await sql`delete from apps where user_id = ${userId} and deleted_at is not null`;
+}
+
+export async function setDock(userId: number, slugs: string[]) {
+  await ensureSchema();
+  await sql`insert into user_settings (user_id, dock_slugs) values (${userId}, ${slugs})
+    on conflict (user_id) do update set dock_slugs = excluded.dock_slugs`;
 }
 
 export async function getApp(userId: number, slug: string): Promise<AppRow | null> {
@@ -36,7 +59,7 @@ export async function getApp(userId: number, slug: string): Promise<AppRow | nul
   const [a] = await sql<AppRow[]>`
     select a.id, a.slug, a.name, a.description, a.icon_url, a.position, a.current_version_id, v.version
     from apps a left join app_versions v on v.id = a.current_version_id
-    where a.user_id = ${userId} and a.slug = ${slug}`;
+    where a.user_id = ${userId} and a.slug = ${slug} and a.deleted_at is null`;
   return a ?? null;
 }
 
@@ -73,8 +96,13 @@ export async function createApp(userId: number, a: { slug: string; name: string;
   return row.id;
 }
 
+/** Moves the app to the Trash. It can be put back until the Trash is emptied. */
 export async function deleteApp(userId: number, slug: string) {
-  await sql`delete from apps where user_id = ${userId} and slug = ${slug}`;
+  await sql`update apps set deleted_at = now() where user_id = ${userId} and slug = ${slug}`;
+}
+
+export async function deleteData(appId: number, key: string) {
+  await sql`delete from app_data where app_id = ${appId} and key = ${key}`;
 }
 
 export async function getData(appId: number, key: string) {
