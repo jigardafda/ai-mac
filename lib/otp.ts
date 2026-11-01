@@ -39,7 +39,9 @@ function hashCode(email: string, code: string) {
 /** On success, `challenge` goes to the requesting browser as a cookie; only that browser can use the code. */
 export type IssueResult = { ok: true; challenge: string; isNew: boolean } | { ok: false; status: number; error: string };
 
-export async function issueCode(email: string, ip: string): Promise<IssueResult> {
+export type Purpose = "signin" | "admin";
+
+export async function issueCode(email: string, ip: string, purpose: Purpose = "signin"): Promise<IssueResult> {
   await ensureSchema();
   const [account] = await sql<{ name: string | null }[]>`select name from users where email = ${email}`;
   const name = account?.name ?? "";
@@ -58,13 +60,22 @@ export async function issueCode(email: string, ip: string): Promise<IssueResult>
   await sql`insert into login_codes (email, name, code_hash, challenge_hash, ip, expires_at)
             values (${email}, ${name}, ${hashCode(email, code)}, ${hashChallenge(challenge)}, ${ip}, now() + ${TTL_MINUTES} * interval '1 minute')`;
   try {
-    await sendCodeEmail(email, name, code);
+    await sendCodeEmail(email, name, code, purpose);
   } catch (e) {
     await sql`update login_codes set used_at = now() where email = ${email} and used_at is null`;
     console.error("Could not send the sign-in email:", e instanceof Error ? e.message : e);
     return { ok: false, status: 502, error: "Could not send the email. Try again in a moment." };
   }
   return { ok: true, challenge, isNew: !account };
+}
+
+/** Whether this browser holds a live code for the address, without spending a try. */
+export async function hasPendingCode(email: string, challenge: string): Promise<boolean> {
+  if (!/^[0-9a-f]{64}$/.test(challenge)) return false;
+  await ensureSchema();
+  const [r] = await sql`select 1 from login_codes where email = ${email} and challenge_hash = ${hashChallenge(challenge)}
+    and used_at is null and expires_at > now() and attempts < ${MAX_ATTEMPTS} limit 1`;
+  return !!r;
 }
 
 export type VerifyResult = { ok: true; name: string } | { ok: false; error: string };
@@ -93,7 +104,8 @@ export async function verifyCode(email: string, code: string, challenge: string)
   return used ? { ok: true, name: row.name } : bad;
 }
 
-async function sendCodeEmail(to: string, name: string, code: string) {
+async function sendCodeEmail(to: string, name: string, code: string, purpose: Purpose) {
+  const what = purpose === "admin" ? "AI Mac admin sign-in code" : "AI Mac sign-in code";
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     if (process.env.NODE_ENV === "production") throw new Error("RESEND_API_KEY is not set");
@@ -104,14 +116,14 @@ async function sendCodeEmail(to: string, name: string, code: string) {
   const hi = name ? `Hi ${safe},` : "Hi,";
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;color:#1d1d1f">
 <p style="font-size:15px;margin:0 0 16px">${hi}</p>
-<p style="font-size:15px;margin:0 0 16px">Your AI Mac sign-in code is:</p>
+<p style="font-size:15px;margin:0 0 16px">Your ${what} is:</p>
 <p style="font-size:32px;letter-spacing:6px;font-weight:600;margin:0 0 16px">${code}</p>
 <p style="font-size:13px;color:#6e6e73;margin:0">It expires in ${TTL_MINUTES} minutes and works once. If you did not ask for it, ignore this email; nobody can sign in without the code.</p></div>`;
-  const text = `${name ? `Hi ${name},` : "Hi,"}\n\nYour AI Mac sign-in code is ${code}.\nIt expires in ${TTL_MINUTES} minutes and works once. If you did not ask for it, ignore this email.\n`;
+  const text = `${name ? `Hi ${name},` : "Hi,"}\n\nYour ${what} is ${code}.\nIt expires in ${TTL_MINUTES} minutes and works once. If you did not ask for it, ignore this email.\n`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: FROM, to: [to], subject: `${code} is your AI Mac sign-in code`, html, text }),
+    body: JSON.stringify({ from: FROM, to: [to], subject: `${code} is your ${what}`, html, text }),
     signal: AbortSignal.timeout(10_000),
   });
   if (!r.ok) throw new Error(`Resend answered ${r.status}`);

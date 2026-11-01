@@ -88,6 +88,7 @@ To generate new apps, add `OPENAI_API_KEY` to `.env.local`.
 | `SESSION_SECRET` | yes | signs the session cookie and keys the sign-in code hashes; use 32+ random bytes (`openssl rand -hex 32`) |
 | `RESEND_API_KEY` | production | sends the sign-in emails through [Resend](https://resend.com); without it, production refuses to start a sign-in |
 | `MAIL_FROM` | no | sender address, default `AI Mac <noreply@jigardafda.com>`; **set this to your own verified domain** |
+| `ADMIN_EMAILS` | no | comma separated addresses allowed into the admin panel at `/admin`; unset turns the panel off |
 | `OPENAI_API_KEY` | for generation | code, chat and image models |
 | `AIC_CODE_MODEL` | no | default `gpt-5.5` |
 | `AIC_CHAT_MODEL` | no | default `gpt-5.4-mini`, used by `aic.ask` |
@@ -238,6 +239,7 @@ To check fidelity, screenshots of each app are taken with Playwright and reviewe
 app/              pages and API routes
   login/          email, then the emailed code (and a first name for new addresses)
   desktop/        the desktop page
+  admin/          the read-only admin dashboard (ADMIN_EMAILS only)
   api/auth/       otp/request, otp/verify, logout
   api/apps/       list, create; per app: get or build, improve, data, ask, versions
   api/browse/     the sandboxed proxy behind Safari
@@ -248,6 +250,16 @@ templates/        reviewed builds of the default apps, installed on first open
 public/           wallpaper, icons and the logo
 docs/images/      README screenshots and the tour GIF
 ```
+
+## Admin panel
+
+`/admin` is a read-only dashboard for whoever runs the instance: totals, every user (name, email, joined, last sign-in, how many apps they have and made), the apps people made with "New app", and for each user the requests that produced their apps.
+
+- **Who can get in** is the `ADMIN_EMAILS` environment variable, never code. Unset, the panel is off.
+- **Sign-in is an emailed code**, like the desktop, but only an address on the list is ever sent one; everyone else gets the same reply and no email.
+- **It is its own session.** A separate, `SameSite=Strict`, 8 hour cookie that carries no user account, so signing in as an admin does not create a desktop. The list is checked again on every request, so removing an address ends its session.
+- **It is read-only and limited on purpose.** It shows counts and what people asked for. It never shows app data, file contents or generated code.
+- Admin pages are sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
 
 ## Deploying
 

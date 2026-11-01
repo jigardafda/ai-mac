@@ -25,6 +25,7 @@ The threat model is that **generated code is untrusted**. Reports we especially 
 - **Validator bypasses** in `lib/sandbox.ts` that let an app do something it forbids.
 - **SSRF** through `/api/browse` (reaching private, link-local or loopback addresses, redirects to them, DNS rebinding).
 - **Sign-in flaws:** guessing or replaying a code, bypassing the attempt or rate limits, account takeover, session fixation, or learning whether an address has an account faster than the documented rate limits allow. (The sign-in page deliberately tells new addresses from existing ones so it can ask for a first name.)
+- **Admin panel:** reaching `/admin` or `/api/admin` without being on the `ADMIN_EMAILS` list, or seeing app data, files or generated code through it.
 - **Cross-user access:** reading or changing another user's apps, versions, data or files.
 - **Injection,** XSS, CSRF, header or cookie weaknesses, and leaking secrets in responses or logs.
 
@@ -42,6 +43,7 @@ If you act in good faith, stay within the scope above, avoid privacy violations 
 
 ## For people running their own instance
 
+- Set `ADMIN_EMAILS` only to addresses you control, or leave it unset to disable the admin panel.
 - Set a long random `SESSION_SECRET` (`openssl rand -hex 32`) and never reuse the development credentials in `docker-compose.yml`.
 - Verify your sending domain (DKIM, SPF, DMARC) before enabling sign-in emails.
 - Keep `OPENAI_API_KEY` and `RESEND_API_KEY` in your host's secret store, never in the repository.
