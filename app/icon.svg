@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AI Mac">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c6cff"/>
+      <stop offset="0.6" stop-color="#ff6fa5"/>
+      <stop offset="1" stop-color="#ffb86b"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2060"/>
+      <stop offset="1" stop-color="#1a1440"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect width="512" height="256" rx="116" fill="url(#shine)"/>
+  <!-- the monitor -->
+  <rect x="132" y="112" width="248" height="248" rx="40" fill="#fff"/>
+  <rect x="162" y="142" width="188" height="150" rx="20" fill="url(#screen)"/>
+  <!-- a happy face -->
+  <rect x="204" y="190" width="14" height="30" rx="7" fill="#fff"/>
+  <rect x="294" y="190" width="14" height="30" rx="7" fill="#fff"/>
+  <path d="M214 244 Q256 276 298 244" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <!-- disk slot -->
+  <rect x="198" y="318" width="116" height="12" rx="6" fill="#d9d3f7"/>
+  <rect x="284" y="321" width="22" height="6" rx="3" fill="#a79ddb"/>
+  <!-- base -->
+  <rect x="168" y="360" width="176" height="26" rx="13" fill="#fff" fill-opacity="0.88"/>
+  <!-- the AI sparkle -->
+  <path d="M392 78 C396 108 404 116 434 120 C404 124 396 132 392 162 C388 132 380 124 350 120 C380 116 388 108 392 78Z" fill="#fff6bf" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M452 168 C454 182 458 186 472 188 C458 190 454 194 452 208 C450 194 446 190 432 188 C446 186 450 182 452 168Z" fill="#fff"/>
+</svg>

@@ -52,7 +52,8 @@ export default function LoginPage() {
     <main className={styles.page}>
       {step === "details" ? (
         <form className={styles.card} onSubmit={sendCode}>
-          <div className={styles.logo} aria-hidden="true" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.logo} src="/logo.svg" alt="AI Mac logo" width={72} height={72} />
           <h1 className={styles.title}>AI Mac</h1>
           <p className={styles.sub}>Enter your name and email. We will send you a code to sign in. New here? That creates your desktop.</p>
           <label className={styles.label}>
@@ -68,7 +69,8 @@ export default function LoginPage() {
         </form>
       ) : (
         <form className={styles.card} onSubmit={verify}>
-          <div className={styles.logo} aria-hidden="true" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.logo} src="/logo.svg" alt="AI Mac logo" width={72} height={72} />
           <h1 className={styles.title}>Check your email</h1>
           <p className={styles.sub}>We sent a 6 digit code to {email}. It works for 10 minutes.</p>
           <label className={styles.label}>

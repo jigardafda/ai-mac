@@ -88,7 +88,8 @@ export function MenuBar({ left, right, clock }: { left: Menu[]; right: Menu[]; c
 }
 
 export const Glyph = {
-  logo: <span className={styles.logo} aria-label="AI Mac" />,
+  // eslint-disable-next-line @next/next/no-img-element
+  logo: <img className={styles.logo} src="/logo.svg" alt="AI Mac" width={16} height={16} />,
   wifi: (
     <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-label="Wi-Fi"><path d="M8 11.3a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6Zm-3-3.2 1.1 1.1A2.7 2.7 0 0 1 8 8.4c.7 0 1.4.3 1.9.8L11 8.1A4.3 4.3 0 0 0 8 6.8c-1.2 0-2.2.5-3 1.3ZM2.6 5.7l1.1 1.1A6.1 6.1 0 0 1 8 5.1c1.7 0 3.2.6 4.3 1.7l1.1-1.1A7.6 7.6 0 0 0 8 3.5c-2.1 0-4 .9-5.4 2.2ZM.3 3.4l1.1 1.1A9.4 9.4 0 0 1 8 1.8c2.6 0 4.9 1 6.6 2.7l1.1-1.1A11 11 0 0 0 8 .2 11 11 0 0 0 .3 3.4Z" /></svg>
   ),

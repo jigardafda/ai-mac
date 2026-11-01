@@ -20,11 +20,11 @@
 }
 
 .logo {
-  width: 64px;
-  height: 64px;
+  display: block;
+  width: 72px;
+  height: 72px;
   margin: 0 auto 4px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #7c6cff, #ff6fa5 60%, #ffb86b);
+  border-radius: 20px;
   box-shadow: 0 10px 24px -10px rgba(124, 108, 255, 0.8);
 }
 

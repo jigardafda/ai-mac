@@ -1,12 +1,12 @@
 {
-  "name": "ai-computer",
+  "name": "ai-mac",
   "version": "0.1.0",
-  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "jose": "^6.2.14",
@@ -27,5 +27,25 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  }
+  },
+  "license": "MIT",
+  "description": "A desktop in the browser whose apps do not exist until you open them.",
+  "homepage": "https://ai-mac.jigardafda.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jigardafda/ai-mac.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jigardafda/ai-mac/issues"
+  },
+  "author": "Jigar Dafda",
+  "keywords": [
+    "ai",
+    "nextjs",
+    "generative-ui",
+    "macos",
+    "sandbox",
+    "postgres"
+  ],
+  "private": "true"
 }

@@ -1,0 +1,9 @@
+# Everything needs the maintainer's review; security-sensitive code is listed to make that explicit.
+*                          @jigardafda
+/lib/sandbox.ts            @jigardafda
+/lib/otp.ts                @jigardafda
+/lib/auth.ts               @jigardafda
+/app/api/auth/             @jigardafda
+/app/api/browse/           @jigardafda
+/next.config.ts            @jigardafda
+/.github/                  @jigardafda

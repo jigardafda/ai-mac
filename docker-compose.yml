@@ -1,0 +1,17 @@
+# Postgres for local development only. The credentials are throwaway and the
+# port is bound to localhost; never reuse them anywhere that is reachable.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aic
+      POSTGRES_PASSWORD: aic
+      POSTGRES_DB: ai_mac
+    ports:
+      - "127.0.0.1:5495:5432"
+    volumes:
+      - ai-mac-db:/var/lib/postgresql/data
+
+volumes:
+  ai-mac-db:

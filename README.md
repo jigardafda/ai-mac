@@ -1,12 +1,130 @@
-# AI Mac
+<p align="center">
+  <img src="docs/images/logo.png" alt="AI Mac logo" width="128" height="128">
+</p>
 
-A desktop in the browser whose apps do not exist until you open them.
+<h1 align="center">AI Mac</h1>
 
-Sign in with your name and email (a six digit code arrives by email, no password), and you get a Mac-style desktop with a dock and a set of icons: Notes, Calculator, Todo, Calendar, Weather, Paint, Music. None of those apps is written yet. Double-click one and a model writes it in front of you (about a minute), it opens, and from then on it loads from your own cache in a few milliseconds. Every user has their own desktop, their own copies of the apps, their own data. "New app" turns a sentence into a new icon. "Improve" rewrites an app the way you ask and keeps the old versions.
+<p align="center">
+  <b>A desktop in your browser whose apps don't exist until you open them.</b><br>
+  Double-click an icon, watch a model write the app, and keep it.
+</p>
 
-This is an experiment, not a product.
+<p align="center">
+  <a href="https://ai-mac.jigardafda.com"><b>Live demo</b></a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="SECURITY.md">Security</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/jigardafda/ai-mac/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jigardafda/ai-mac/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Node 24+" src="https://img.shields.io/badge/node-%E2%89%A524-339933.svg">
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-black.svg">
+  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/tour.gif" alt="A tour of AI Mac: sign in with an emailed code, open Calculator, Notes, Weather, Music, Calendar, play Bomberman, use the Terminal" width="860">
+</p>
+
+> **An experiment, not a product.** AI Mac is an independent project. It is not affiliated with, endorsed by or sponsored by Apple Inc. "Mac", "macOS" and the names of Apple's apps are trademarks of Apple Inc.; the apps here are original code written to resemble them.
+
+## What is it?
+
+Sign in with your name and email (a six digit code arrives by email, no password) and you get a Mac-style desktop with a dock, a menu bar and a set of icons: Notes, Calculator, Reminders, Calendar, Weather, Freeform, Music and two arcade games. Every user has their own desktop, their own copy of every app and their own data.
+
+- **Open an app that doesn't exist yet and a model writes it in front of you**, streaming the code into the window. It is checked, stored, and from then on loads from your own cache in milliseconds.
+- **"New app" turns a sentence into a new icon.** *"A habit tracker with streaks"* becomes an app on your desktop with a generated icon.
+- **"Improve" rewrites an app the way you ask**, and keeps every old version so you can roll back.
+- **Apps are sandboxed.** Generated code runs in an iframe with no origin and talks to the desktop only through a small, narrow API.
+- **It also ships real, hand-written apps:** Finder, TextEdit, Terminal, Safari (a sandboxed proxy browser), System Settings and Activity Monitor, plus reviewed builds of the default apps so a new desktop works at once.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/desktop.jpg" alt="The desktop with dock, menu bar and icons"><br><sub><b>The desktop</b> — menu bar, dock with magnification, icons on the right.</sub></td>
+    <td width="50%"><img src="docs/images/login.jpg" alt="The sign-in card asking for a name and email"><br><sub><b>Sign in</b> — name and email, then a code by email. No passwords.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/bomberman.jpg" alt="Bomberman mid-game with a bomb exploding"><br><sub><b>Bomberman</b> — a playable arcade game, written by the model and reviewed.</sub></td>
+    <td><img src="docs/images/notes.jpg" alt="The Notes app with a typed note"><br><sub><b>Notes</b> — saved per app on the server.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/weather.jpg" alt="The Weather app showing Mumbai"><br><sub><b>Weather</b> — live data from Open-Meteo, no key needed.</sub></td>
+    <td><img src="docs/images/music.jpg" alt="The Music app with a song library"><br><sub><b>Music</b> — a library with generated loops.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/calculator.jpg" alt="The Calculator app showing 46"><br><sub><b>Calculator</b> — keyboard and mouse.</sub></td>
+    <td><img src="docs/images/terminal.jpg" alt="The Terminal app listing files"><br><sub><b>Terminal</b> — a small shell over your own files.</sub></td>
+  </tr>
+</table>
+
+## Quick start
+
+You need **Node 24+** and **Postgres**. You do **not** need an OpenAI key to try it: the default apps ship as reviewed templates, so the desktop, the built-in apps and every default app work without one. A key is only needed to generate new apps, use "Improve", or let apps call `aic.ask`.
+
+```bash
+git clone https://github.com/jigardafda/ai-mac.git
+cd ai-mac
+
+docker compose up -d            # Postgres on 127.0.0.1:5495 (dev credentials, local only)
+cp .env.example .env.local      # then set SESSION_SECRET (see the comment inside)
+npm install
+npm run dev                     # http://localhost:3000
+```
+
+Sign in with any name and email. In development the six digit code is **printed in the terminal** instead of being emailed, so you need no mail provider. The schema creates itself on first use.
+
+To generate new apps, add `OPENAI_API_KEY` to `.env.local`.
+
+### Configuration
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Postgres connection string |
+| `SESSION_SECRET` | yes | signs the session cookie and keys the sign-in code hashes; use 32+ random bytes (`openssl rand -hex 32`) |
+| `RESEND_API_KEY` | production | sends the sign-in emails through [Resend](https://resend.com); without it, production refuses to start a sign-in |
+| `MAIL_FROM` | no | sender address, default `AI Mac <noreply@jigardafda.com>`; **set this to your own verified domain** |
+| `OPENAI_API_KEY` | for generation | code, chat and image models |
+| `AIC_CODE_MODEL` | no | default `gpt-5.5` |
+| `AIC_CHAT_MODEL` | no | default `gpt-5.4-mini`, used by `aic.ask` |
+| `AIC_IMAGE_MODEL` | no | default `gpt-image-2`, used for new app icons |
+| `DEV_ORIGINS` | no | comma separated hosts allowed to reach the dev server |
+
+### Scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | start the dev server |
+| `npm run build` / `npm start` | production build and server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript, no emit |
 
 ## How it works
+
+```mermaid
+flowchart LR
+  U([You]) -->|double-click| D[Desktop<br/>Next.js client]
+  D -->|GET /api/apps/slug| A[API routes]
+  A --> P[(Postgres<br/>users, apps, versions, data)]
+  A -->|no version yet| T{Template<br/>shipped?}
+  T -->|yes| P
+  T -->|no| J[Build job]
+  J --> M[Code model]
+  M -->|stream| J
+  J --> V[Validate +<br/>headless check]
+  V -->|one fix pass| M
+  V --> P
+  D -->|srcdoc| F[[Sandboxed iframe<br/>no origin]]
+  F <-->|postMessage<br/>window.aic| D
+```
+
+## Under the hood
+
+### The pieces
 
 - **Next.js 16** (App Router, TypeScript) serves the desktop and the API. **Postgres** stores users, apps, app versions (the generated code) and app data.
 - **Generation**: `lib/generate.ts` asks the code model (`gpt-5.5` by default) for one self-contained HTML document per app: inline CSS and JS, no frameworks, no external scripts. The response streams back to the window so you watch the code being written. `validateApp` rejects anything that reaches for the parent page, cookies or external scripts.
@@ -69,7 +187,8 @@ Postgres holds everything. The schema is created on first use (`ensureSchema` in
 
 | Table | Holds |
 | --- | --- |
-| `users` | email and a bcrypt password hash |
+| `users` | email and display name |
+| `login_codes` | pending sign-in codes: HMAC of the code, expiry, attempts, a hash of the requesting browser's challenge |
 | `apps` | one row per user per app: slug, name, brief, icon, dock position, current version, soft-delete time |
 | `app_versions` | the generated HTML for each version, with the prompt and model that wrote it |
 | `app_data` | per-app key and JSON value, the storage behind `aic.storage` |
@@ -107,57 +226,56 @@ Besides the generated apps, the desktop has a set of real, hand-written componen
 
 The menu bar, dock (with magnification and zoom-from-icon), window chrome and traffic lights are in `components/` too.
 
-## Deploying
-
-It runs as one Next.js service plus Postgres, for example on Railway: set `DATABASE_URL`, `SESSION_SECRET` and `OPENAI_API_KEY` as variables, deploy from this repository, and the schema creates itself on first request. Use Node 24 or newer (`.node-version` pins 26). Headless Chromium for the runtime check is optional: if Playwright cannot launch a browser, the check is skipped rather than blocking the build.
-
-## Running it
-
-```
-docker run -d --name ai-computer-db -p 127.0.0.1:5495:5432 \
-  -e POSTGRES_USER=aic -e POSTGRES_PASSWORD=<pw> -e POSTGRES_DB=ai_computer pgvector/pgvector:pg16
-cp .env.example .env.local   # fill in DATABASE_URL, SESSION_SECRET, OPENAI_API_KEY
-npm install
-PORT=3700 npm run dev
-```
-
-The schema is created on first use. Open http://localhost:3700, create a desktop, double-click something.
-
-Environment:
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | Postgres connection string |
-| `SESSION_SECRET` | signs the session cookie and keys the sign-in code hashes |
-| `RESEND_API_KEY` | sends the sign-in emails through Resend |
-| `MAIL_FROM` | sender, default `AI Mac <noreply@jigardafda.com>`; the domain must be verified in Resend |
-| `OPENAI_API_KEY` | used for code, chat and images |
-| `AIC_CODE_MODEL` | default `gpt-5.5` |
-| `AIC_CHAT_MODEL` | default `gpt-5.4-mini`, used by `aic.ask` |
-| `AIC_IMAGE_MODEL` | default `gpt-image-2`, used for new app icons |
-| `DEV_ORIGINS` | comma separated hosts allowed to reach the dev server |
-
-## Layout
-
-```
-app/              pages and API routes
-  login/          email and password sign in
-  desktop/        the desktop page
-  api/auth/       signup, login, logout
-  api/apps/       list, create; per app: get or build, improve, data, ask, versions
-components/       Desktop (menu bar, icons, dock, windows) and AppWindow (iframe, bridge, build UI)
-lib/              db, auth, catalog of default apps, generation, sandbox bridge, icons
-public/           generated wallpaper and icons
-```
-
 ## How the look is kept honest
 
 The shell follows macOS measurements (24px menu bar, 28px title bar, 12px traffic lights 8px apart, 22px menu rows, dock magnification, zoom-from-icon, minimise-to-dock). Each default app's brief in `lib/catalog.ts` names the real macOS app and describes its layout, and the system prompt in `lib/generate.ts` carries a macOS design system (colours, control sizes, typography, motion).
 
 To check fidelity, screenshots of each app are taken with Playwright and reviewed by a second model (Codex CLI, `codex exec -i screenshot.png`), which lists the most visible differences from the real app. Those findings go back into the briefs, and "Rebuild" writes the app again. The default apps always build from the current brief, so an old desktop picks up improvements when it rebuilds.
 
+## Project layout
+
+```
+app/              pages and API routes
+  login/          name and email, then the emailed code
+  desktop/        the desktop page
+  api/auth/       otp/request, otp/verify, logout
+  api/apps/       list, create; per app: get or build, improve, data, ask, versions
+  api/browse/     the sandboxed proxy behind Safari
+  api/files/      the per-user file system behind Finder, TextEdit and Terminal
+components/       Desktop (menu bar, icons, dock, windows), AppWindow (iframe, bridge, build UI) and the built-in apps
+lib/              db, auth, otp, catalog of default apps, generation, jobs, sandbox bridge, runtime check
+templates/        reviewed builds of the default apps, installed on first open
+public/           wallpaper, icons and the logo
+docs/images/      README screenshots and the tour GIF
+```
+
+## Deploying
+
+It runs as one Next.js service plus Postgres, for example on [Railway](https://railway.com): add a Postgres, set `DATABASE_URL`, `SESSION_SECRET`, `RESEND_API_KEY`, `MAIL_FROM` and (optionally) `OPENAI_API_KEY`, deploy from this repository, and the schema creates itself on first request. Use Node 24 or newer (`.node-version` pins 26). Headless Chromium for the runtime check is optional: if Playwright cannot launch a browser, the check is skipped rather than blocking the build.
+
+Verify your sending domain in Resend (DKIM, SPF and ideally DMARC records) before going live, or sign-in emails will not arrive.
+
 ## Known limits
 
 - A build takes about a minute and costs a model call; a desktop with many users builds each app once per user.
 - Apps are single HTML files under roughly 900 lines, so they stay small by design.
 - Generated code is reviewed by a validator, not by a person. Keep this on a trusted network.
+
+## Contributing
+
+Contributions are welcome, from typo fixes to new shipped apps. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first; it covers setup, the checks every change must pass, and how to add a template app. By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Good places to start:
+
+- **Add or improve a shipped app** in `templates/` (it is one HTML file).
+- **Make builds survive a restart** by moving the in-memory job store (`lib/jobs.ts`) into Postgres.
+- **Teach the validator more** about what generated code must not do (`lib/sandbox.ts`).
+- **Tests.** There is no test suite yet; the enemy-movement fix in Bomberman was verified with a headless simulation that would make a good starting point.
+
+## Security
+
+Found a vulnerability? Please **do not open a public issue**. Report it privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Jigar Dafda. Third-party trademarks belong to their owners.
