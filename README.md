@@ -15,6 +15,7 @@ This is an experiment, not a product.
   - `aic.ask(prompt)` — a short answer from a cheaper chat model
   - `aic.open(slug)`, `aic.setTitle(text)`, `aic.notify(text)`
   Everything goes over `postMessage` with request ids; the host answers through the normal authenticated API.
+- **Shipped builds**: every default app also has a reviewed build in `templates/<slug>.html`. The first open installs that copy in a few hundred milliseconds, so a new desktop works at once; "Rebuild From Scratch" in the app menu writes a fresh one from the brief instead. Bomberman and Road Rash ship the same way.
 - **Caching**: the first open builds version 1 and stores it. Later opens fetch `GET /api/apps/<slug>` and get the stored HTML. "Improve" and "Rebuild" create new versions; `/api/apps/<slug>/versions` lists them and can roll back.
 - **Images**: the wallpaper and the default icons were generated once with the image model and live in `public/`. Icons for new apps are generated when the app is created.
 

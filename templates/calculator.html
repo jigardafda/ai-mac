@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator</title>
+<style>
+  :root{
+    --bg:#1c1c1e;
+    --digit:#5a5a5e;
+    --digit-hover:#6a6a6e;
+    --function:#8e8e93;
+    --function-hover:#a1a1a6;
+    --operator:#ff9f0a;
+    --operator-hover:#ffb340;
+    --text:#fff;
+    --muted:rgba(235,235,245,.42);
+    --panel:#2c2c2e;
+    --separator:rgba(255,255,255,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg)}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:13px;
+    line-height:1.3;
+    color:#fff;
+    user-select:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{
+    font:inherit;
+    color:inherit;
+    border:0;
+    padding:0;
+    margin:0;
+    background:none;
+    appearance:none;
+    cursor:default;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .app{
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    background:var(--bg);
+    display:flex;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .calculator{
+    width:100%;
+    max-width:380px;
+    height:100%;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    background:var(--bg);
+    transition:max-width 180ms cubic-bezier(.2,.8,.2,1);
+  }
+  .scientific .calculator{max-width:720px}
+  .top-strip{
+    height:36px;
+    min-height:36px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:4px 8px 0 8px;
+    position:relative;
+    z-index:30;
+  }
+  .icon-button{
+    width:28px;
+    height:28px;
+    border-radius:7px;
+    display:grid;
+    place-items:center;
+    color:rgba(255,255,255,.82);
+    transition:background 120ms ease, transform 120ms ease, color 120ms ease;
+  }
+  .icon-button:hover{background:rgba(255,255,255,.09)}
+  .icon-button:active{transform:scale(.94);background:rgba(255,255,255,.14)}
+  .icon-button.active{background:rgba(255,255,255,.13);color:white}
+  svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;fill:none}
+  .saved-status{
+    position:absolute;
+    left:50%;
+    top:10px;
+    transform:translateX(-50%) translateY(-2px);
+    color:rgba(235,235,245,.48);
+    font-size:11px;
+    opacity:0;
+    transition:opacity 220ms ease, transform 220ms ease;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .saved-status.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .saved-status.error{color:#ff9f0a}
+  .display{
+    height:120px;
+    min-height:82px;
+    flex:0 0 auto;
+    padding:8px 18px 10px 14px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    justify-content:flex-end;
+    overflow:hidden;
+  }
+  .expression{
+    min-height:18px;
+    max-width:100%;
+    color:rgba(235,235,245,.42);
+    font-size:13px;
+    line-height:18px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    letter-spacing:-.01em;
+    padding-bottom:1px;
+  }
+  .value{
+    max-width:100%;
+    color:#fff;
+    font-weight:200;
+    font-size:56px;
+    line-height:1.02;
+    letter-spacing:-.02em;
+    text-align:right;
+    white-space:nowrap;
+    transform-origin:right center;
+    font-variant-numeric:tabular-nums;
+  }
+  .lower{
+    position:relative;
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+  }
+  .pads{
+    height:100%;
+    width:100%;
+    padding:10px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    transition:filter 160ms ease;
+  }
+  .scientific .pads{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  }
+  .basic-pad,.sci-pad{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-rows:repeat(5,minmax(42px,1fr));
+    gap:8px;
+  }
+  .sci-pad{display:none}
+  .scientific .sci-pad{display:grid}
+  .key{
+    min-width:0;
+    min-height:0;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    overflow:hidden;
+    transition:background 90ms ease, color 90ms ease, transform 90ms ease, filter 90ms ease;
+    font-variant-numeric:tabular-nums;
+  }
+  .key:active{transform:scale(.985);filter:brightness(1.12)}
+  .key.flash::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:rgba(255,255,255,.18);
+    animation:flash 170ms ease-out forwards;
+  }
+  @keyframes flash{
+    from{opacity:1}
+    to{opacity:0}
+  }
+  .digit{background:var(--digit);color:white}
+  .digit:hover{background:var(--digit-hover)}
+  .function{background:var(--function);color:#050505}
+  .function:hover{background:var(--function-hover)}
+  .operator{background:var(--operator);color:white}
+  .operator:hover{background:var(--operator-hover)}
+  .operator.active{
+    background:white;
+    color:var(--operator);
+  }
+  .sci{
+    background:#3b3b3f;
+    color:#fff;
+  }
+  .sci:hover{background:#48484c}
+  .sci.active{
+    background:rgba(255,255,255,.88);
+    color:#1c1c1e;
+  }
+  .key-label{
+    font-weight:400;
+    font-size:24px;
+    letter-spacing:-.02em;
+    line-height:1;
+    pointer-events:none;
+  }
+  .operator .key-label{font-size:30px;font-weight:300}
+  .function .key-label{font-size:22px;color:#050505}
+  .sci .key-label{font-size:16px;letter-spacing:-.01em}
+  .zero{
+    grid-column:span 2;
+    justify-content:flex-start;
+    padding-left:calc(25% - 10px);
+  }
+  .zero .key-label{text-align:left}
+  .mode-popover{
+    position:absolute;
+    top:34px;
+    left:8px;
+    width:178px;
+    background:rgba(246,246,246,.96);
+    color:rgba(0,0,0,.86);
+    border:1px solid rgba(0,0,0,.14);
+    border-radius:10px;
+    box-shadow:0 10px 40px rgba(0,0,0,.32);
+    padding:6px;
+    opacity:0;
+    transform:scale(.96) translateY(-4px);
+    transform-origin:18px 0;
+    pointer-events:none;
+    transition:opacity 160ms cubic-bezier(.2,.8,.2,1),transform 160ms cubic-bezier(.2,.8,.2,1);
+    z-index:50;
+  }
+  .mode-popover.open{
+    opacity:1;
+    transform:scale(1) translateY(0);
+    pointer-events:auto;
+  }
+  .mode-popover::before{
+    content:"";
+    position:absolute;
+    left:14px;
+    top:-6px;
+    width:10px;
+    height:10px;
+    background:rgba(246,246,246,.96);
+    border-left:1px solid rgba(0,0,0,.14);
+    border-top:1px solid rgba(0,0,0,.14);
+    transform:rotate(45deg);
+  }
+  .menu-item{
+    height:28px;
+    border-radius:6px;
+    padding:0 8px 0 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:relative;
+    font-size:13px;
+    color:rgba(0,0,0,.86);
+  }
+  .menu-item:hover{background:#007aff;color:white}
+  .menu-item .check{
+    position:absolute;
+    left:8px;
+    width:13px;
+    height:13px;
+    color:currentColor;
+    opacity:0;
+  }
+  .menu-item.selected .check{opacity:1}
+  .history-panel{
+    position:absolute;
+    top:0;
+    right:0;
+    bottom:0;
+    width:min(294px,82%);
+    background:rgba(36,36,38,.98);
+    border-left:1px solid rgba(255,255,255,.11);
+    box-shadow:-18px 0 34px rgba(0,0,0,.25);
+    transform:translateX(105%);
+    opacity:.98;
+    transition:transform 220ms cubic-bezier(.2,.8,.2,1);
+    z-index:20;
+    display:flex;
+    flex-direction:column;
+    color:#fff;
+  }
+  .history-open .history-panel{transform:translateX(0)}
+  .history-open .pads{filter:brightness(.78)}
+  .history-head{
+    height:44px;
+    min-height:44px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 12px 0 16px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .history-title{
+    font-size:16px;
+    font-weight:600;
+    letter-spacing:-.01em;
+  }
+  .small-button{
+    height:24px;
+    padding:0 9px;
+    border-radius:6px;
+    color:rgba(255,255,255,.82);
+    font-size:12px;
+    transition:background 120ms ease,transform 120ms ease;
+  }
+  .small-button:hover{background:rgba(255,255,255,.1)}
+  .small-button:active{transform:scale(.97)}
+  .history-list{
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    padding:8px 0;
+  }
+  .history-empty{
+    color:rgba(235,235,245,.38);
+    text-align:center;
+    padding:34px 24px;
+    font-size:13px;
+  }
+  .history-item{
+    padding:9px 16px 10px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    animation:itemIn 180ms cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes itemIn{
+    from{opacity:0;transform:translateY(8px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .history-expr{
+    color:rgba(235,235,245,.46);
+    font-size:12px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    text-align:right;
+  }
+  .history-result{
+    margin-top:2px;
+    color:white;
+    font-size:22px;
+    font-weight:300;
+    line-height:1.15;
+    letter-spacing:-.02em;
+    text-align:right;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  @media (max-height:420px){
+    .display{height:84px;padding-bottom:6px}
+    .value{font-size:44px}
+    .basic-pad,.sci-pad{grid-template-rows:repeat(5,minmax(34px,1fr))}
+    .key-label{font-size:20px}
+    .operator .key-label{font-size:25px}
+    .function .key-label{font-size:18px}
+    .sci .key-label{font-size:13px}
+  }
+  @media (max-width:560px){
+    .scientific .pads{gap:6px;padding:8px}
+    .scientific .basic-pad,.scientific .sci-pad{gap:6px}
+    .scientific .key-label{font-size:19px}
+    .scientific .operator .key-label{font-size:23px}
+    .scientific .function .key-label{font-size:17px}
+    .scientific .sci .key-label{font-size:12px}
+    .scientific .zero{padding-left:calc(25% - 8px)}
+  }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="calculator">
+      <div class="top-strip">
+        <button class="icon-button" id="modeButton" aria-label="Calculator mode" title="Calculator mode">
+          <svg viewBox="0 0 18 18" aria-hidden="true">
+            <path d="M4.2 4.5h9.6M4.2 9h9.6M4.2 13.5h9.6"/>
+          </svg>
+        </button>
+        <div class="saved-status" id="savedStatus">Saved</div>
+        <button class="icon-button" id="historyButton" aria-label="History" title="History">
+          <svg viewBox="0 0 18 18" aria-hidden="true">
+            <path d="M3.2 5.2A6.5 6.5 0 1 1 2.7 12"/>
+            <path d="M3.1 2.8v2.7h2.7"/>
+            <path d="M9 5.4V9l2.5 1.55"/>
+          </svg>
+        </button>
+        <div class="mode-popover" id="modePopover" role="menu">
+          <button class="menu-item" data-mode="basic" role="menuitem">
+            <svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.2 7.2 5.4 10.4 11.8 3.7"/></svg>
+            <span>Basic</span>
+          </button>
+          <button class="menu-item" data-mode="scientific" role="menuitem">
+            <svg class="check" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.2 7.2 5.4 10.4 11.8 3.7"/></svg>
+            <span>Scientific</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="display" id="displayArea">
+        <div class="expression" id="expression"></div>
+        <div class="value" id="value">0</div>
+      </div>
+
+      <div class="lower" id="lower">
+        <div class="pads">
+          <div class="sci-pad" aria-label="Scientific keys">
+            <button class="key sci" data-action="second"><span class="key-label">2nd</span></button>
+            <button class="key sci" data-sci="square"><span class="key-label">x²</span></button>
+            <button class="key sci" data-sci="cube"><span class="key-label">x³</span></button>
+            <button class="key sci" data-op="^"><span class="key-label">xʸ</span></button>
+
+            <button class="key sci" data-sci="sin"><span class="key-label sci-trig">sin</span></button>
+            <button class="key sci" data-sci="cos"><span class="key-label sci-trig">cos</span></button>
+            <button class="key sci" data-sci="tan"><span class="key-label sci-trig">tan</span></button>
+            <button class="key sci" data-sci="sqrt"><span class="key-label">√x</span></button>
+
+            <button class="key sci" data-sci="ln"><span class="key-label">ln</span></button>
+            <button class="key sci" data-sci="log"><span class="key-label">log</span></button>
+            <button class="key sci" data-sci="exp"><span class="key-label">eˣ</span></button>
+            <button class="key sci" data-sci="reciprocal"><span class="key-label">1/x</span></button>
+
+            <button class="key sci" data-sci="pi"><span class="key-label">π</span></button>
+            <button class="key sci" data-sci="e"><span class="key-label">e</span></button>
+            <button class="key sci" data-sci="factorial"><span class="key-label">x!</span></button>
+            <button class="key sci" data-sci="tenpow"><span class="key-label">10ˣ</span></button>
+
+            <button class="key sci" data-sci="asin"><span class="key-label">sin⁻¹</span></button>
+            <button class="key sci" data-sci="acos"><span class="key-label">cos⁻¹</span></button>
+            <button class="key sci" data-sci="atan"><span class="key-label">tan⁻¹</span></button>
+            <button class="key sci" data-action="random"><span class="key-label">Rand</span></button>
+          </div>
+
+          <div class="basic-pad" aria-label="Calculator keys">
+            <button class="key function" data-action="clear"><span class="key-label">AC</span></button>
+            <button class="key function" data-action="sign"><span class="key-label">±</span></button>
+            <button class="key function" data-action="percent"><span class="key-label">%</span></button>
+            <button class="key operator" data-op="÷"><span class="key-label">÷</span></button>
+
+            <button class="key digit" data-digit="7"><span class="key-label">7</span></button>
+            <button class="key digit" data-digit="8"><span class="key-label">8</span></button>
+            <button class="key digit" data-digit="9"><span class="key-label">9</span></button>
+            <button class="key operator" data-op="×"><span class="key-label">×</span></button>
+
+            <button class="key digit" data-digit="4"><span class="key-label">4</span></button>
+            <button class="key digit" data-digit="5"><span class="key-label">5</span></button>
+            <button class="key digit" data-digit="6"><span class="key-label">6</span></button>
+            <button class="key operator" data-op="−"><span class="key-label">−</span></button>
+
+            <button class="key digit" data-digit="1"><span class="key-label">1</span></button>
+            <button class="key digit" data-digit="2"><span class="key-label">2</span></button>
+            <button class="key digit" data-digit="3"><span class="key-label">3</span></button>
+            <button class="key operator" data-op="+"><span class="key-label">+</span></button>
+
+            <button class="key digit zero" data-digit="0"><span class="key-label">0</span></button>
+            <button class="key digit" data-action="decimal"><span class="key-label">.</span></button>
+            <button class="key operator" data-action="equals"><span class="key-label">=</span></button>
+          </div>
+        </div>
+
+        <aside class="history-panel" id="historyPanel" aria-label="History">
+          <div class="history-head">
+            <div class="history-title">History</div>
+            <button class="small-button" id="clearHistory">Clear</button>
+          </div>
+          <div class="history-list" id="historyList"></div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  const memoryStore = {};
+  const api = window.aic || {
+    storage:{
+      async get(k){ return memoryStore[k] ?? null; },
+      async set(k,v){ memoryStore[k]=v; },
+      async keys(){ return Object.keys(memoryStore); }
+    },
+    async setTitle(){},
+    async setTitlebar(){},
+    async notify(){}
+  };
+
+  const $ = sel => document.querySelector(sel);
+  const app = $("#app");
+  const modeButton = $("#modeButton");
+  const historyButton = $("#historyButton");
+  const modePopover = $("#modePopover");
+  const savedStatus = $("#savedStatus");
+  const expressionEl = $("#expression");
+  const valueEl = $("#value");
+  const displayArea = $("#displayArea");
+  const lower = $("#lower");
+  const historyList = $("#historyList");
+  const clearHistoryBtn = $("#clearHistory");
+
+  let mode = "basic";
+  let history = [];
+  let displayValue = "0";
+  let expressionLine = "";
+  let firstOperand = null;
+  let operator = null;
+  let waitingForSecond = false;
+  let justEvaluated = false;
+  let secondMode = false;
+  let saveTimer = null;
+  let saveStatusTimer = null;
+
+  const storageKey = "calculator.sequoia.state";
+
+  init();
+
+  async function init(){
+    try {
+      await api.setTitle?.("Calculator");
+      await api.setTitlebar?.("#1c1c1e", "#ffffff");
+    } catch (_) {}
+
+    try {
+      const stored = await api.storage.get(storageKey);
+      if (stored && typeof stored === "object") {
+        if (stored.mode === "scientific" || stored.mode === "basic") mode = stored.mode;
+        if (Array.isArray(stored.history)) history = stored.history.slice(0,50);
+      }
+    } catch (_) {
+      showSaved("Save unavailable", true);
+    }
+
+    setMode(mode, false);
+    renderHistory();
+    render();
+    bindEvents();
+    adjustDisplaySize();
+    window.addEventListener("resize", adjustDisplaySize);
+  }
+
+  function bindEvents(){
+    modeButton.addEventListener("click", e => {
+      e.stopPropagation();
+      togglePopover();
+    });
+
+    historyButton.addEventListener("click", e => {
+      e.stopPropagation();
+      app.classList.toggle("history-open");
+      historyButton.classList.toggle("active", app.classList.contains("history-open"));
+    });
+
+    modePopover.addEventListener("click", e => {
+      const item = e.target.closest("[data-mode]");
+      if (!item) return;
+      setMode(item.dataset.mode, true);
+      closePopover();
+    });
+
+    document.addEventListener("pointerdown", e => {
+      if (!modePopover.contains(e.target) && e.target !== modeButton) closePopover();
+    });
+
+    document.querySelectorAll(".key").forEach(key => {
+      key.addEventListener("click", () => handleButton(key));
+    });
+
+    clearHistoryBtn.addEventListener("click", () => {
+      if (!history.length) return;
+      history = [];
+      renderHistory();
+      persist();
+    });
+
+    document.addEventListener("keydown", handleKeydown);
+  }
+
+  function handleButton(key){
+    flashKey(key);
+
+    if (key.dataset.digit !== undefined) inputDigit(key.dataset.digit);
+    else if (key.dataset.op) chooseOperator(key.dataset.op);
+    else if (key.dataset.sci) applyScientific(key.dataset.sci);
+    else {
+      const action = key.dataset.action;
+      if (action === "clear") clearAll();
+      if (action === "sign") toggleSign();
+      if (action === "percent") percent();
+      if (action === "decimal") inputDecimal();
+      if (action === "equals") equals();
+      if (action === "second") toggleSecond();
+      if (action === "random") setConstant(Math.random(), "Rand");
+    }
+    render();
+  }
+
+  function handleKeydown(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    let keyEl = null;
+    const k = e.key;
+
+    if (/^[0-9]$/.test(k)) {
+      keyEl = document.querySelector(`[data-digit="${k}"]`);
+      inputDigit(k);
+    } else if (k === "." || k === ",") {
+      keyEl = document.querySelector('[data-action="decimal"]');
+      inputDecimal();
+    } else if (k === "Enter" || k === "=") {
+      keyEl = document.querySelector('[data-action="equals"]');
+      equals();
+    } else if (k === "Backspace") {
+      backspace();
+    } else if (k === "Escape") {
+      keyEl = document.querySelector('[data-action="clear"]');
+      clearAll();
+    } else if (k === "%") {
+      keyEl = document.querySelector('[data-action="percent"]');
+      percent();
+    } else if (k === "+") {
+      keyEl = document.querySelector('[data-op="+"]');
+      chooseOperator("+");
+    } else if (k === "-") {
+      keyEl = document.querySelector('[data-op="−"]');
+      chooseOperator("−");
+    } else if (k === "*") {
+      keyEl = document.querySelector('[data-op="×"]');
+      chooseOperator("×");
+    } else if (k === "/") {
+      keyEl = document.querySelector('[data-op="÷"]');
+      chooseOperator("÷");
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    if (keyEl) flashKey(keyEl);
+    render();
+  }
+
+  function inputDigit(digit){
+    if (displayValue === "Error" || displayValue === "Not a Number") resetForInput();
+
+    if (waitingForSecond || justEvaluated) {
+      displayValue = digit;
+      waitingForSecond = false;
+      if (justEvaluated && !operator) {
+        expressionLine = "";
+        firstOperand = null;
+      }
+      justEvaluated = false;
+      return;
+    }
+
+    const plain = displayValue.replace("-", "").replace(".", "");
+    if (plain.length >= 16) return;
+    displayValue = displayValue === "0" ? digit : displayValue + digit;
+  }
+
+  function inputDecimal(){
+    if (displayValue === "Error" || displayValue === "Not a Number") resetForInput();
+
+    if (waitingForSecond || justEvaluated) {
+      displayValue = "0.";
+      waitingForSecond = false;
+      if (justEvaluated && !operator) {
+        expressionLine = "";
+        firstOperand = null;
+      }
+      justEvaluated = false;
+      return;
+    }
+    if (!displayValue.includes(".")) displayValue += ".";
+  }
+
+  function chooseOperator(nextOp){
+    if (displayValue === "Error" || displayValue === "Not a Number") return;
+
+    const input = Number(displayValue);
+
+    if (operator && waitingForSecond) {
+      operator = nextOp;
+      expressionLine = `${formatOperand(firstOperand)} ${operator}`;
+      return;
+    }
+
+    if (firstOperand === null) {
+      firstOperand = input;
+    } else if (operator) {
+      const result = calculate(firstOperand, input, operator);
+      if (!isFiniteNumber(result)) {
+        setError();
+        return;
+      }
+      displayValue = toResultString(result);
+      firstOperand = result;
+    }
+
+    operator = nextOp;
+    waitingForSecond = true;
+    justEvaluated = false;
+    expressionLine = `${formatOperand(firstOperand)} ${operator}`;
+  }
+
+  function equals(){
+    if (!operator || firstOperand === null || displayValue === "Error" || displayValue === "Not a Number") return;
+
+    const second = Number(displayValue);
+    const result = calculate(firstOperand, second, operator);
+    const expr = `${formatOperand(firstOperand)} ${operator} ${formatOperand(second)} =`;
+
+    if (!isFiniteNumber(result)) {
+      setError();
+      addHistory(expr, "Error");
+    } else {
+      displayValue = toResultString(result);
+      expressionLine = expr;
+      addHistory(expr, formatDisplay(displayValue));
+    }
+
+    firstOperand = null;
+    operator = null;
+    waitingForSecond = false;
+    justEvaluated = true;
+  }
+
+  function calculate(a,b,op){
+    if (op === "+") return a + b;
+    if (op === "−") return a - b;
+    if (op === "×") return a * b;
+    if (op === "÷") return b === 0 ? NaN : a / b;
+    if (op === "^") return Math.pow(a,b);
+    return b;
+  }
+
+  function toggleSign(){
+    if (displayValue === "0" || displayValue === "Error" || displayValue === "Not a Number") return;
+    displayValue = displayValue.startsWith("-") ? displayValue.slice(1) : "-" + displayValue;
+  }
+
+  function percent(){
+    if (displayValue === "Error" || displayValue === "Not a Number") return;
+    let current = Number(displayValue);
+    if (operator && firstOperand !== null && (operator === "+" || operator === "−")) {
+      current = firstOperand * current / 100;
+    } else {
+      current = current / 100;
+    }
+    displayValue = toResultString(current);
+  }
+
+  function backspace(){
+    if (waitingForSecond || justEvaluated || displayValue === "Error" || displayValue === "Not a Number") return;
+    if (displayValue.length <= 1 || (displayValue.length === 2 && displayValue.startsWith("-"))) {
+      displayValue = "0";
+    } else {
+      displayValue = displayValue.slice(0,-1);
+    }
+  }
+
+  function clearAll(){
+    displayValue = "0";
+    expressionLine = "";
+    firstOperand = null;
+    operator = null;
+    waitingForSecond = false;
+    justEvaluated = false;
+  }
+
+  function applyScientific(fn){
+    if (displayValue === "Error" || displayValue === "Not a Number") return;
+
+    if (fn === "sin" && secondMode) fn = "asin";
+    else if (fn === "cos" && secondMode) fn = "acos";
+    else if (fn === "tan" && secondMode) fn = "atan";
+    else if (fn === "ln" && secondMode) fn = "exp";
+    else if (fn === "log" && secondMode) fn = "tenpow";
+
+    if (fn === "pi") return setConstant(Math.PI, "π");
+    if (fn === "e") return setConstant(Math.E, "e");
+
+    const x = Number(displayValue);
+    let result;
+    let label;
+
+    switch(fn){
+      case "square": result = x*x; label = `(${formatOperand(x)})²`; break;
+      case "cube": result = x*x*x; label = `(${formatOperand(x)})³`; break;
+      case "sqrt": result = x < 0 ? NaN : Math.sqrt(x); label = `√(${formatOperand(x)})`; break;
+      case "reciprocal": result = x === 0 ? NaN : 1/x; label = `1/(${formatOperand(x)})`; break;
+      case "sin": result = Math.sin(x); label = `sin(${formatOperand(x)})`; break;
+      case "cos": result = Math.cos(x); label = `cos(${formatOperand(x)})`; break;
+      case "tan": result = Math.tan(x); label = `tan(${formatOperand(x)})`; break;
+      case "asin": result = Math.asin(x); label = `sin⁻¹(${formatOperand(x)})`; break;
+      case "acos": result = Math.acos(x); label = `cos⁻¹(${formatOperand(x)})`; break;
+      case "atan": result = Math.atan(x); label = `tan⁻¹(${formatOperand(x)})`; break;
+      case "ln": result = x <= 0 ? NaN : Math.log(x); label = `ln(${formatOperand(x)})`; break;
+      case "log": result = x <= 0 ? NaN : Math.log10(x); label = `log(${formatOperand(x)})`; break;
+      case "exp": result = Math.exp(x); label = `e^(${formatOperand(x)})`; break;
+      case "tenpow": result = Math.pow(10,x); label = `10^(${formatOperand(x)})`; break;
+      case "factorial": result = factorial(x); label = `(${formatOperand(x)})!`; break;
+      default: return;
+    }
+
+    expressionLine = `${label} =`;
+    if (!isFiniteNumber(result)) {
+      displayValue = "Error";
+      addHistory(expressionLine, "Error");
+    } else {
+      displayValue = toResultString(result);
+      addHistory(expressionLine, formatDisplay(displayValue));
+    }
+    firstOperand = null;
+    operator = null;
+    waitingForSecond = false;
+    justEvaluated = true;
+  }
+
+  function setConstant(value,label){
+    if (waitingForSecond || justEvaluated) waitingForSecond = false;
+    displayValue = toResultString(value);
+    expressionLine = label;
+    justEvaluated = false;
+    render();
+  }
+
+  function toggleSecond(){
+    secondMode = !secondMode;
+    document.querySelector('[data-action="second"]').classList.toggle("active", secondMode);
+    const labels = {
+      sin: secondMode ? "sin⁻¹" : "sin",
+      cos: secondMode ? "cos⁻¹" : "cos",
+      tan: secondMode ? "tan⁻¹" : "tan"
+    };
+    const trig = document.querySelectorAll(".sci-trig");
+    trig[0].textContent = labels.sin;
+    trig[1].textContent = labels.cos;
+    trig[2].textContent = labels.tan;
+  }
+
+  function factorial(x){
+    if (x < 0 || !Number.isInteger(x) || x > 170) return NaN;
+    let r = 1;
+    for (let i=2;i<=x;i++) r *= i;
+    return r;
+  }
+
+  function resetForInput(){
+    displayValue = "0";
+    expressionLine = "";
+    firstOperand = null;
+    operator = null;
+    waitingForSecond = false;
+    justEvaluated = false;
+  }
+
+  function setError(){
+    displayValue = "Error";
+    firstOperand = null;
+    operator = null;
+    waitingForSecond = false;
+    justEvaluated = true;
+  }
+
+  function addHistory(expr,result){
+    history.unshift({expr,result});
+    history = history.slice(0,50);
+    renderHistory();
+    persist();
+  }
+
+  function render(){
+    expressionEl.textContent = expressionLine;
+    valueEl.textContent = formatDisplay(displayValue);
+    document.querySelectorAll(".operator").forEach(btn => {
+      btn.classList.toggle("active", !!operator && waitingForSecond && btn.dataset.op === operator);
+    });
+    adjustDisplaySize();
+  }
+
+  function renderHistory(){
+    if (!history.length) {
+      historyList.innerHTML = `<div class="history-empty">No history yet</div>`;
+      return;
+    }
+    historyList.innerHTML = history.map(item => `
+      <div class="history-item">
+        <div class="history-expr">${escapeHtml(item.expr)}</div>
+        <div class="history-result">${escapeHtml(item.result)}</div>
+      </div>
+    `).join("");
+  }
+
+  function formatDisplay(raw){
+    if (raw === "Error" || raw === "Not a Number") return raw;
+    if (raw === "-0") return "0";
+    if (/e/i.test(raw)) return raw.replace("e+","e");
+    let sign = "";
+    if (raw.startsWith("-")) {
+      sign = "−";
+      raw = raw.slice(1);
+    }
+    let [integer, fraction] = raw.split(".");
+    integer = integer || "0";
+    integer = integer.replace(/^0+(?=\d)/,"");
+    integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g,",");
+    if (fraction !== undefined) return sign + integer + "." + fraction;
+    return sign + integer;
+  }
+
+  function formatOperand(n){
+    if (!isFiniteNumber(n)) return "Error";
+    const s = toResultString(n);
+    return formatDisplay(s);
+  }
+
+  function toResultString(n){
+    if (!isFiniteNumber(n)) return "Error";
+    if (Object.is(n,-0)) n = 0;
+    const abs = Math.abs(n);
+    if ((abs >= 1e15 || (abs > 0 && abs < 1e-9))) {
+      return Number(n.toPrecision(10)).toString();
+    }
+    let s = Number(n.toPrecision(13)).toString();
+    if (s.includes("e")) return s.replace("e+","e");
+    if (s.includes(".")) s = s.replace(/0+$/,"").replace(/\.$/,"");
+    return s;
+  }
+
+  function isFiniteNumber(n){
+    return typeof n === "number" && Number.isFinite(n);
+  }
+
+  function adjustDisplaySize(){
+    const text = valueEl.textContent || "0";
+    const available = Math.max(80, displayArea.clientWidth - 36);
+    const chars = text.length;
+    let size = 56;
+    if (chars > 8) size = Math.min(56, Math.max(24, available / (chars * 0.52)));
+    if (window.innerHeight < 420) size = Math.min(size, 44);
+    valueEl.style.fontSize = `${size}px`;
+  }
+
+  function setMode(next, shouldSave){
+    mode = next;
+    document.body.classList.toggle("scientific", mode === "scientific");
+    document.querySelectorAll(".menu-item").forEach(item => {
+      item.classList.toggle("selected", item.dataset.mode === mode);
+    });
+    if (shouldSave) persist();
+    requestAnimationFrame(adjustDisplaySize);
+  }
+
+  function togglePopover(){
+    modePopover.classList.toggle("open");
+    modeButton.classList.toggle("active", modePopover.classList.contains("open"));
+  }
+
+  function closePopover(){
+    modePopover.classList.remove("open");
+    modeButton.classList.remove("active");
+  }
+
+  function flashKey(key){
+    key.classList.remove("flash");
+    void key.offsetWidth;
+    key.classList.add("flash");
+    setTimeout(() => key.classList.remove("flash"), 190);
+  }
+
+  function persist(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        await api.storage.set(storageKey, {mode, history});
+        showSaved("Saved", false);
+      } catch (_) {
+        showSaved("Save failed", true);
+      }
+    }, 120);
+  }
+
+  function showSaved(text,isError){
+    clearTimeout(saveStatusTimer);
+    savedStatus.textContent = text;
+    savedStatus.classList.toggle("error", !!isError);
+    savedStatus.classList.add("show");
+    saveStatusTimer = setTimeout(() => savedStatus.classList.remove("show"), isError ? 2600 : 1200);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, ch => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[ch]));
+  }
+})();
+</script>
+</body>
+</html>
