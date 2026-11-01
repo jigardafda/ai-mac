@@ -1,49 +1,38 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
-import bcrypt from "bcryptjs";
 import { ensureSchema, sql } from "./db";
 import { seedDefaultApps } from "./apps";
 
 const COOKIE = "aic_session";
 const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET!);
 
-export type SessionUser = { id: number; email: string };
+export type SessionUser = { id: number; email: string; name?: string };
 
-export async function createUser(email: string, password: string): Promise<SessionUser> {
+/** The account for a verified email: created on first sign-in with the name given, found afterwards. */
+export async function findOrCreateUser(email: string, name: string): Promise<SessionUser> {
   await ensureSchema();
-  const hash = await bcrypt.hash(password, 10);
-  const [u] = await sql<SessionUser[]>`
-    insert into users (email, password_hash) values (${email.toLowerCase()}, ${hash})
+  const [existing] = await sql<{ id: number; email: string; name: string | null }[]>`
+    select id, email, name from users where email = ${email}`;
+  if (existing) {
+    if (!existing.name) await sql`update users set name = ${name} where id = ${existing.id}`;
+    return { id: existing.id, email: existing.email, name: existing.name || name };
+  }
+  const [u] = await sql<{ id: number; email: string }[]>`
+    insert into users (email, name) values (${email}, ${name})
+    on conflict (email) do update set email = excluded.email
     returning id, email`;
   await seedDefaultApps(u.id);
-  return u;
-}
-
-export async function verifyUser(email: string, password: string): Promise<SessionUser | null> {
-  await ensureSchema();
-  const [u] = await sql<{ id: number; email: string; password_hash: string }[]>`
-    select id, email, password_hash from users where email = ${email.toLowerCase()}`;
-  if (!u) return null;
-  return (await bcrypt.compare(password, u.password_hash)) ? { id: u.id, email: u.email } : null;
-}
-
-/** Changes the password after checking the current one. */
-export async function changePassword(userId: number, current: string, next: string): Promise<boolean> {
-  const [u] = await sql<{ password_hash: string }[]>`select password_hash from users where id = ${userId}`;
-  if (!u || !(await bcrypt.compare(current, u.password_hash))) return false;
-  const hash = await bcrypt.hash(next, 10);
-  await sql`update users set password_hash = ${hash} where id = ${userId}`;
-  return true;
+  return { id: u.id, email: u.email, name };
 }
 
 export async function setSession(user: SessionUser) {
-  const token = await new SignJWT({ email: user.email })
+  const token = await new SignJWT({ email: user.email, name: user.name })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(user.id))
     .setIssuedAt()
-    .setExpirationTime("30d")
+    .setExpirationTime("14d")
     .sign(secret());
-  (await cookies()).set(COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  (await cookies()).set(COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 14 });
 }
 
 export async function clearSession() {
@@ -54,8 +43,8 @@ export async function getUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secret());
-    return { id: Number(payload.sub), email: String(payload.email) };
+    const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
+    return { id: Number(payload.sub), email: String(payload.email), name: payload.name ? String(payload.name) : undefined };
   } catch {
     return null;
   }

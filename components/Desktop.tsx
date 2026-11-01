@@ -36,7 +36,7 @@ export const MENU_H = 24;
 const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 const BUILTIN_ROWS: AppRow[] = BUILTIN_APPS.map((b, i) => ({ id: -1 - i, slug: b.slug, name: b.name, description: b.description, icon_url: b.icon, position: 1000 + i, current_version_id: null, version: 1 }));
 
-export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpaper, prefs: initialPrefs }: { user: { id: number; email: string }; initialApps: AppRow[]; dockSlugs: string[]; wallpaper: string; prefs: Prefs }) {
+export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpaper, prefs: initialPrefs }: { user: { id: number; email: string; name?: string }; initialApps: AppRow[]; dockSlugs: string[]; wallpaper: string; prefs: Prefs }) {
   const router = useRouter();
   const [apps, setApps] = useState(initialApps);
   const [dock, setDockState] = useState(dockSlugs);
@@ -76,7 +76,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const appOf = useCallback((slug: string) => allApps.find((a) => a.slug === slug), [allApps]);
   const isDefault = (slug: string) => DEFAULT_APPS.some((a) => a.slug === slug);
   const K = isMac ? "⌘" : "Ctrl+";
-  const name = user.email.split("@")[0];
+  const name = user.name || user.email.split("@")[0];
 
   /* ---------- preferences ---------- */
   const setPrefs = useCallback((patch: Prefs) => {
@@ -679,23 +679,35 @@ function ScreenSaver({ kind, clock, onEnd }: { kind: string; clock: boolean; onE
 }
 
 function LockScreen({ email, name, message, showUser, bg, onUnlock, onSwitch }: { email: string; name: string; message: string; showUser: boolean; bg: string; onUnlock: () => void; onSwitch: () => void }) {
-  const [pw, setPw] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
+  const [note, setNote] = useState("");
   const [shake, setShake] = useState(false);
   const [t, setT] = useState<{ time: string; date: string }>({ time: "", date: "" });
   useEffect(() => { const f = () => { const d = new Date(); setT({ time: d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), date: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) }); }; f(); const i = setInterval(f, 1000); return () => clearInterval(i); }, []);
+  const post = (url: string, body: unknown) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  async function sendCode() {
+    setNote("");
+    const r = await post("/api/auth/otp/request", { name, email });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return setNote(j.error || "Could not send the code.");
+    setSent(true);
+    setNote(`Code sent to ${email}`);
+  }
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: pw }) });
+    if (!sent) return sendCode();
+    const r = await post("/api/auth/otp/verify", { email, code });
     if (r.ok) return onUnlock();
-    setShake(true); setPw(""); setTimeout(() => setShake(false), 500);
+    setShake(true); setCode(""); setNote("That code is wrong or has expired."); setTimeout(() => setShake(false), 500);
   }
   return (
     <div className={styles.lock} style={{ backgroundImage: bg }}>
       <div className={styles.lockTime}><span>{t.date}</span><strong>{t.time}</strong></div>
       <form className={`${styles.lockUser} ${shake ? styles.shake : ""}`} onSubmit={submit}>
         {showUser ? <><i className={styles.lockAvatar}>{name.slice(0, 1).toUpperCase()}</i><b>{name}</b></> : null}
-        <input autoFocus type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Enter Password" aria-label="Password" />
-        <small>{message || "Touch ID or Enter Password"}</small>
+        {sent ? <input autoFocus type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="Enter the 6 digit code" aria-label="Code" /> : <button type="submit" className={styles.lockSwitch}>Email me a code to unlock</button>}
+        <small>{note || message || "Unlock with a code sent to your email"}</small>
         <button type="button" className={styles.lockSwitch} onClick={onSwitch}>Switch User…</button>
       </form>
     </div>

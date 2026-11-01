@@ -2,7 +2,7 @@
 
 A desktop in the browser whose apps do not exist until you open them.
 
-Sign in, and you get a Mac-style desktop with a dock and a set of icons: Notes, Calculator, Todo, Calendar, Weather, Paint, Music. None of those apps is written yet. Double-click one and a model writes it in front of you (about a minute), it opens, and from then on it loads from your own cache in a few milliseconds. Every user has their own desktop, their own copies of the apps, their own data. "New app" turns a sentence into a new icon. "Improve" rewrites an app the way you ask and keeps the old versions.
+Sign in with your name and email (a six digit code arrives by email, no password), and you get a Mac-style desktop with a dock and a set of icons: Notes, Calculator, Todo, Calendar, Weather, Paint, Music. None of those apps is written yet. Double-click one and a model writes it in front of you (about a minute), it opens, and from then on it loads from your own cache in a few milliseconds. Every user has their own desktop, their own copies of the apps, their own data. "New app" turns a sentence into a new icon. "Improve" rewrites an app the way you ask and keeps the old versions.
 
 This is an experiment, not a product.
 
@@ -75,7 +75,7 @@ Postgres holds everything. The schema is created on first use (`ensureSchema` in
 | `app_data` | per-app key and JSON value, the storage behind `aic.storage` |
 | `user_settings` | wallpaper, dock contents and preferences |
 
-Everything is keyed by user, so every account has its own desktop, its own copies of the apps and its own data. Sessions are a signed cookie (`jose`), and passwords are hashed with `bcryptjs`.
+Everything is keyed by user, so every account has its own desktop, its own copies of the apps and its own data. Sessions are a signed, HttpOnly, `Secure` cookie (`jose`, HS256, 14 days). There are no passwords: `login_codes` holds the pending sign-in codes.
 
 ## Security model
 
@@ -85,6 +85,8 @@ Generated code is untrusted code, so the design assumes the model can write some
 - **A narrow door.** The only way out is the `window.aic` bridge over `postMessage`. The host answers each request through the normal authenticated API, scoped to the signed-in user and that one app.
 - **A validator and a runtime check** catch the obvious escapes and the obvious breakage before an app is stored.
 - **The built-in browser is a proxy** (`app/api/browse/route.ts`). It refuses non-http(s) addresses, addresses with credentials, `localhost`, `.local` and `.internal` names, and any host that resolves to a private or link-local address. It caps responses at 4 MB, strips frame-blocking headers, and runs the page in its own sandboxed frame with an opaque origin so page scripts cannot reach your session.
+- **Sign-in is an emailed code** (`lib/otp.ts`). The code is six digits from a CSPRNG, stored only as an HMAC, valid for 10 minutes, single use, and locked after 5 wrong tries (counted atomically, so parallel guesses cannot beat the limit). Requests are limited to one per 30 seconds and 5 per hour per address, and 20 per hour per IP. The response never says whether an address already has a desktop, and names are stripped of control characters and angle brackets and HTML-escaped in the email.
+- **Hardened responses.** Every response carries HSTS, `nosniff`, `X-Frame-Options: SAMEORIGIN` and a `frame-ancestors 'self'` policy, a strict referrer policy and a locked-down permissions policy.
 - **Secrets stay server-side.** The OpenAI key is only ever read by the server. Apps get a short answer from `aic.ask`, never a key.
 
 This is still an experiment. The validator is a filter, not a proof. Do not point it at anything you cannot afford to lose.
@@ -126,7 +128,9 @@ Environment:
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string |
-| `SESSION_SECRET` | signs the session cookie |
+| `SESSION_SECRET` | signs the session cookie and keys the sign-in code hashes |
+| `RESEND_API_KEY` | sends the sign-in emails through Resend |
+| `MAIL_FROM` | sender, default `AI Mac <noreply@jigardafda.com>`; the domain must be verified in Resend |
 | `OPENAI_API_KEY` | used for code, chat and images |
 | `AIC_CODE_MODEL` | default `gpt-5.5` |
 | `AIC_CHAT_MODEL` | default `gpt-5.4-mini`, used by `aic.ask` |

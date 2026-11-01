@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AppRow } from "@/lib/apps";
 import styles from "./terminal.module.css";
 
-type Props = { user: { id: number; email: string }; apps: AppRow[]; hostname: string; onOpen: (slug: string) => void; onClose: () => void; onTitle: (t: string) => void };
+type Props = { user: { id: number; email: string; name?: string }; apps: AppRow[]; hostname: string; onOpen: (slug: string) => void; onClose: () => void; onTitle: (t: string) => void };
 type Line = { text: string; kind?: "in" | "err" };
 
 /**

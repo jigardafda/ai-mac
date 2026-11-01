@@ -51,6 +51,21 @@ create table if not exists user_settings (
 );
 alter table apps add column if not exists deleted_at timestamptz;
 alter table user_settings add column if not exists prefs jsonb not null default '{}'::jsonb;
+alter table users add column if not exists name text;
+alter table users alter column password_hash drop not null;
+create table if not exists login_codes (
+  id bigserial primary key,
+  email text not null,
+  name text not null,
+  code_hash text not null,
+  ip text not null default '',
+  attempts int not null default 0,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  used_at timestamptz
+);
+create index if not exists login_codes_email_idx on login_codes (email, created_at desc);
+create index if not exists login_codes_ip_idx on login_codes (ip, created_at desc);
 `;
 
 /** Applies the schema once per process, and again whenever it changes under a

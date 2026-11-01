@@ -7,7 +7,7 @@ import styles from "./settings.module.css";
 
 export type Prefs = Record<string, unknown>;
 type Props = {
-  user: { id: number; email: string };
+  user: { id: number; email: string; name?: string };
   apps: AppRow[];
   prefs: Prefs;
   setPrefs: (patch: Prefs) => void;
@@ -102,29 +102,19 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
   const [sub, setSub] = useState<string | null>(general ? initialPane : null);
   const [q, setQ] = useState("");
   const [stats, setStats] = useState<Stats | null>(null);
-  const [pw, setPw] = useState<{ cur: string; next: string; again: string } | null>(null);
   const [erase, setErase] = useState<string | null>(null);
   const [wallPrompt, setWallPrompt] = useState("");
   const [making, setMaking] = useState(false);
   const p = <T,>(k: string, d: T): T => (prefs[k] === undefined ? d : (prefs[k] as T));
   const set = (k: string, v: unknown) => setPrefs({ [k]: v });
-  const name = user.email.split("@")[0];
+  const name = user.name || user.email.split("@")[0];
   const initial = name.slice(0, 1).toUpperCase();
   const current = pane === "general" && sub ? GENERAL_SUB.find((s) => s.id === sub)?.name ?? "General" : PANES.find((x) => x.id === pane)?.name ?? "General";
   const visible = useMemo(() => (q ? PANES.filter((x) => x.name.toLowerCase().includes(q.toLowerCase())) : PANES), [q]);
   useEffect(() => { if (pane === "general" && (sub === "about" || sub === "storage" || sub === "update") && !stats) fetch("/api/system/stats").then((r) => r.json()).then(setStats).catch(() => {}); }, [pane, sub, stats]);
 
-  async function savePassword() {
-    if (!pw) return;
-    if (pw.next !== pw.again) return notify("The new passwords do not match.", "Users & Groups");
-    const r = await fetch("/api/auth/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ current: pw.cur, next: pw.next }) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return notify(j.error || "Could not change the password.", "Users & Groups");
-    setPw(null);
-    notify("Your password was changed.", "Users & Groups");
-  }
   async function doErase() {
-    const r = await fetch("/api/system/reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: erase }) });
+    const r = await fetch("/api/system/reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: erase }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return notify(j.error || "Could not erase.", "Transfer or Reset");
     location.reload();
@@ -234,7 +224,7 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
           <Group><Row label="Transfer to a new Mac" sub="Download a backup from Time Machine and keep it safe" onClick={() => setSub("timemachine")} /></Group>
           <Group title="Erase All Content and Settings" note="Removes every app, every record and all settings from this desktop. The default apps come back fresh. This cannot be undone.">
             {erase === null ? <Row label="Erase this Mac"><Btn onClick={() => setErase("")}>Erase All Content and Settings…</Btn></Row> : (
-              <Row label="Enter your password to erase"><input className={styles.text} type="password" value={erase} onChange={(e) => setErase(e.target.value)} placeholder="Password" /><Btn onClick={() => setErase(null)}>Cancel</Btn><Btn primary onClick={doErase} disabled={!erase}>Erase</Btn></Row>
+              <Row label="Type your email address to erase"><input className={styles.text} type="text" autoComplete="off" value={erase} onChange={(e) => setErase(e.target.value)} placeholder={user.email} /><Btn onClick={() => setErase(null)}>Cancel</Btn><Btn primary onClick={doErase} disabled={!erase}>Erase</Btn></Row>
             )}
           </Group>
         </>;
@@ -329,7 +319,7 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
         </Group>
         <Group title="Security">
           <Row label="App sandbox" sub="Every app runs in an isolated frame with no access to the desktop or your session"><span className={styles.val}>On</span></Row>
-          <Row label="FileVault" sub="Records live in the database, protected by your password"><span className={styles.val}>On</span></Row>
+          <Row label="FileVault" sub="Records live in the database, behind your email sign-in"><span className={styles.val}>On</span></Row>
           <Row label="Lockdown Mode"><Toggle on={p("lockdown", false)} onChange={(v) => set("lockdown", v)} /></Row>
         </Group>
       </>;
@@ -394,29 +384,23 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
       case "lockscreen": return <>
         <Group>
           <Row label="Start Screen Saver when inactive"><Sel value={String(p("screenSaverMinutes", 0))} options={[["0", "Never"], ["1", "For 1 minute"], ["5", "For 5 minutes"], ["10", "For 10 minutes"], ["20", "For 20 minutes"]]} onChange={(v) => set("screenSaverMinutes", Number(v))} /></Row>
-          <Row label="Require password after screen saver begins"><Sel value={String(p("lockAfterMinutes", 0))} options={[["0", "Never"], ["1", "After 1 minute"], ["5", "After 5 minutes"], ["15", "After 15 minutes"]]} onChange={(v) => set("lockAfterMinutes", Number(v))} /></Row>
+          <Row label="Require a code after screen saver begins"><Sel value={String(p("lockAfterMinutes", 0))} options={[["0", "Never"], ["1", "After 1 minute"], ["5", "After 5 minutes"], ["15", "After 15 minutes"]]} onChange={(v) => set("lockAfterMinutes", Number(v))} /></Row>
           <Row label="Show message when locked"><input className={styles.text} value={p("lockMessage", "")} onChange={(e) => set("lockMessage", e.target.value.slice(0, 80))} placeholder="Optional message" /></Row>
           <Row label="Show user name and photo"><Toggle on={p("lockShowUser", true)} onChange={(v) => set("lockShowUser", v)} /></Row>
         </Group>
         <Group><Row label="Lock this Mac now"><Btn onClick={onLock}>Lock Screen</Btn></Row></Group>
       </>;
       case "touchid": return <>
-        <Group title="Touch ID"><Row label="Touch ID is not available on this Mac" sub="Sign in with your password" /></Group>
-        <Group title="Password"><Row label="Change the password for this account"><Btn onClick={() => { setPane("users"); setPw({ cur: "", next: "", again: "" }); }}>Change…</Btn></Row></Group>
+        <Group title="Touch ID"><Row label="Touch ID is not available on this Mac" sub="You sign in with a code sent to your email" /></Group>
       </>;
       case "users": return <>
         <Group>
-          <Row label={<span className={styles.userLabel}><i className={styles.avatar}>{initial}</i>{name}</span>} sub={`${user.email} · Admin`}><Btn onClick={() => setPw(pw ? null : { cur: "", next: "", again: "" })}>Change Password…</Btn></Row>
-          {pw ? <>
-            <Row label="Current password"><input className={styles.text} type="password" value={pw.cur} onChange={(e) => setPw({ ...pw, cur: e.target.value })} /></Row>
-            <Row label="New password"><input className={styles.text} type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} /></Row>
-            <Row label="Verify"><input className={styles.text} type="password" value={pw.again} onChange={(e) => setPw({ ...pw, again: e.target.value })} /><Btn onClick={() => setPw(null)}>Cancel</Btn><Btn primary onClick={savePassword} disabled={pw.next.length < 8}>Change Password</Btn></Row>
-          </> : null}
+          <Row label={<span className={styles.userLabel}><i className={styles.avatar}>{initial}</i>{name}</span>} sub={`${user.email} · Admin`}><Btn onClick={onSignOut}>Log Out…</Btn></Row>
         </Group>
         <Group><Row label="Automatically log in as"><span className={styles.val}>Off</span></Row><Row label="Guest User" sub="Off"><Toggle on={false} onChange={() => notify("Guest accounts are not available.", "Users & Groups")} /></Row></Group>
         <Group><Row label="Log out"><Btn onClick={onSignOut}>Log Out {name}…</Btn></Row></Group>
       </>;
-      case "passwords": return <Group note="Passwords for other sites are not stored on this Mac."><Row label="AI Mac" sub={user.email}><Btn onClick={() => setPane("users")}>Change…</Btn></Row></Group>;
+      case "passwords": return <Group note="Passwords for other sites are not stored on this Mac."><Row label="AI Mac" sub={user.email}><span className={styles.val}>Code sign-in</span></Row></Group>;
       case "internet": return <Group note="Mail, Contacts and Calendar accounts cannot be added to a web desktop."><Row label="No accounts" /><Row label="Add Account…"><Btn disabled>Add Account…</Btn></Row></Group>;
       case "gamecenter": return <Group><Row label="Game Center" sub="Bomberman and Road Rash keep their own high scores"><Toggle on={p("gamecenter", false)} onChange={(v) => set("gamecenter", v)} /></Row><Row label="Open Bomberman" onClick={() => onOpenApp("bomberman")} /><Row label="Open Road Rash" onClick={() => onOpenApp("roadrash")} /></Group>;
       case "wallet": return <Group note="Apple Pay is not available on this Mac."><Row label="No cards" /><Row label="Add Card…"><Btn disabled>Add Card…</Btn></Row></Group>;
