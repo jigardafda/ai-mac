@@ -46,6 +46,8 @@ export async function issueCode(email: string, ip: string, purpose: Purpose = "s
   const [account] = await sql<{ name: string | null }[]>`select name from users where email = ${email}`;
   const name = account?.name ?? "";
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  // The per-address cooldown and hourly budget are kept per purpose, so strangers requesting sign-in
+  // codes for an address cannot use up its admin budget. The per-IP budget is shared.
   // The limits are checked and the code inserted under a lock per address and per IP, so a burst of
   // parallel requests cannot all pass the check before any of them is counted.
   const refused = await sql.begin(async (tx): Promise<IssueResult | null> => {
@@ -53,8 +55,8 @@ export async function issueCode(email: string, ip: string, purpose: Purpose = "s
     await tx`select pg_advisory_xact_lock(hashtext(${"i:" + ip}))`;
     const [lim] = await tx<{ recent: number; last_secs: number | null; by_ip: number }[]>`
       select
-        count(*) filter (where email = ${email} and created_at > now() - interval '1 hour')::int as recent,
-        extract(epoch from now() - max(created_at) filter (where email = ${email}))::float as last_secs,
+        count(*) filter (where email = ${email} and purpose = ${purpose} and created_at > now() - interval '1 hour')::int as recent,
+        extract(epoch from now() - max(created_at) filter (where email = ${email} and purpose = ${purpose}))::float as last_secs,
         count(*) filter (where ip = ${ip} and created_at > now() - interval '1 hour')::int as by_ip
       from login_codes where created_at > now() - interval '1 hour'`;
     if (lim.last_secs !== null && lim.last_secs < COOLDOWN_SECONDS) return { ok: false, status: 429, error: `Wait ${Math.ceil(COOLDOWN_SECONDS - lim.last_secs)} seconds before asking for another code.` };
