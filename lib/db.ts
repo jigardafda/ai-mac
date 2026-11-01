@@ -64,6 +64,7 @@ create table if not exists login_codes (
   expires_at timestamptz not null,
   used_at timestamptz
 );
+alter table login_codes add column if not exists challenge_hash text;
 create index if not exists login_codes_email_idx on login_codes (email, created_at desc);
 create index if not exists login_codes_ip_idx on login_codes (ip, created_at desc);
 `;

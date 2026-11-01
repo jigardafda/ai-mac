@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { clientIp } from "@/lib/ip";
-import { cleanEmail, cleanName, issueCode } from "@/lib/otp";
+import { CHALLENGE_COOKIE, cleanEmail, cleanName, issueCode } from "@/lib/otp";
 
 /** Sends a sign-in code. The answer never says whether the address already has a desktop. */
 export async function POST(req: Request) {
@@ -11,5 +12,6 @@ export async function POST(req: Request) {
   if (!email) return NextResponse.json({ error: "Enter a valid email." }, { status: 400 });
   const r = await issueCode(email, name, clientIp(req));
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status, headers: { "cache-control": "no-store" } });
+  (await cookies()).set(CHALLENGE_COOKIE, r.challenge, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/auth/otp", maxAge: 600 });
   return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } });
 }

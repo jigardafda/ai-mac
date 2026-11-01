@@ -1,4 +1,4 @@
-import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { ensureSchema, sql } from "./db";
 
 /**
@@ -12,6 +12,8 @@ const COOLDOWN_SECONDS = 30;
 const MAX_PER_EMAIL_PER_HOUR = 5;
 const MAX_PER_IP_PER_HOUR = 20;
 const FROM = process.env.MAIL_FROM || "AI Mac <noreply@jigardafda.com>";
+
+export const CHALLENGE_COOKIE = "aic_otp";
 
 export const EMAIL_RE = /^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$/;
 
@@ -28,11 +30,14 @@ export function cleanName(raw: unknown): string | null {
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
+const hashChallenge = (c: string) => createHash("sha256").update(c).digest("hex");
+
 function hashCode(email: string, code: string) {
   return createHmac("sha256", process.env.SESSION_SECRET!).update(`${email}:${code}`).digest("hex");
 }
 
-export type IssueResult = { ok: true } | { ok: false; status: number; error: string };
+/** On success, `challenge` goes to the requesting browser as a cookie; only that browser can use the code. */
+export type IssueResult = { ok: true; challenge: string } | { ok: false; status: number; error: string };
 
 export async function issueCode(email: string, name: string, ip: string): Promise<IssueResult> {
   await ensureSchema();
@@ -46,9 +51,10 @@ export async function issueCode(email: string, name: string, ip: string): Promis
   if (lim.recent >= MAX_PER_EMAIL_PER_HOUR || lim.by_ip >= MAX_PER_IP_PER_HOUR) return { ok: false, status: 429, error: "Too many codes requested. Try again in an hour." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const challenge = randomBytes(32).toString("hex");
   await sql`update login_codes set used_at = now() where email = ${email} and used_at is null`;
-  await sql`insert into login_codes (email, name, code_hash, ip, expires_at)
-            values (${email}, ${name}, ${hashCode(email, code)}, ${ip}, now() + ${TTL_MINUTES} * interval '1 minute')`;
+  await sql`insert into login_codes (email, name, code_hash, challenge_hash, ip, expires_at)
+            values (${email}, ${name}, ${hashCode(email, code)}, ${hashChallenge(challenge)}, ${ip}, now() + ${TTL_MINUTES} * interval '1 minute')`;
   try {
     await sendCodeEmail(email, name, code);
   } catch (e) {
@@ -56,20 +62,25 @@ export async function issueCode(email: string, name: string, ip: string): Promis
     console.error("Could not send the sign-in email:", e instanceof Error ? e.message : e);
     return { ok: false, status: 502, error: "Could not send the email. Try again in a moment." };
   }
-  return { ok: true };
+  return { ok: true, challenge };
 }
 
 export type VerifyResult = { ok: true; name: string } | { ok: false; error: string };
 
-export async function verifyCode(email: string, code: string): Promise<VerifyResult> {
+/**
+ * `challenge` is the cookie set when the code was requested. Without the matching one
+ * nothing is counted or checked, so a stranger who knows only the address cannot use up
+ * someone else's five tries.
+ */
+export async function verifyCode(email: string, code: string, challenge: string): Promise<VerifyResult> {
   await ensureSchema();
   const bad: VerifyResult = { ok: false, error: "That code is wrong or has expired." };
-  if (!/^\d{6}$/.test(code)) return bad;
+  if (!/^\d{6}$/.test(code) || !/^[0-9a-f]{64}$/.test(challenge)) return bad;
   // Count the try first, atomically, so parallel guesses cannot beat the limit.
   const [row] = await sql<{ id: number; name: string; code_hash: string; attempts: number }[]>`
     update login_codes set attempts = attempts + 1
-    where id = (select id from login_codes where email = ${email} and used_at is null and expires_at > now()
-                order by created_at desc limit 1)
+    where id = (select id from login_codes where email = ${email} and challenge_hash = ${hashChallenge(challenge)}
+                  and used_at is null and expires_at > now() order by created_at desc limit 1)
       and attempts < ${MAX_ATTEMPTS}
     returning id, name, code_hash, attempts`;
   if (!row) return bad;
