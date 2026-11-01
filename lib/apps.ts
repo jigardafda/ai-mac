@@ -19,7 +19,7 @@ export async function seedDefaultApps(userId: number) {
       values (${userId}, ${a.slug}, ${a.name}, ${a.description}, ${a.icon}, ${i})
       on conflict (user_id, slug) do nothing`;
   }
-  await sql`insert into user_settings (user_id, dock_slugs) values (${userId}, ${DEFAULT_APPS.slice(0, 5).map((a) => a.slug)})
+  await sql`insert into user_settings (user_id, dock_slugs) values (${userId}, ${[...DEFAULT_APPS.slice(0, 5).map((a) => a.slug), "settings"]})
     on conflict (user_id) do nothing`;
 }
 
@@ -120,8 +120,54 @@ export async function listKeys(appId: number): Promise<string[]> {
   return rows.map((r) => r.key);
 }
 
-export async function getSettings(userId: number) {
+export type Prefs = Record<string, unknown>;
+
+export async function getSettings(userId: number): Promise<{ wallpaper_url: string | null; dock_slugs: string[]; prefs: Prefs }> {
   await ensureSchema();
-  const [s] = await sql<{ wallpaper_url: string | null; dock_slugs: string[] }[]>`select wallpaper_url, dock_slugs from user_settings where user_id = ${userId}`;
-  return s ?? { wallpaper_url: null, dock_slugs: [] };
+  const [s] = await sql<{ wallpaper_url: string | null; dock_slugs: string[]; prefs: Prefs }[]>`select wallpaper_url, dock_slugs, prefs from user_settings where user_id = ${userId}`;
+  return s ?? { wallpaper_url: null, dock_slugs: [], prefs: {} };
+}
+
+/** Merges a patch into the user's preferences (System Settings). */
+export async function setPrefs(userId: number, patch: Prefs) {
+  await ensureSchema();
+  await sql`insert into user_settings (user_id, prefs) values (${userId}, ${sql.json(patch as never)})
+    on conflict (user_id) do update set prefs = user_settings.prefs || excluded.prefs`;
+}
+
+export async function setWallpaper(userId: number, url: string | null) {
+  await ensureSchema();
+  await sql`insert into user_settings (user_id, wallpaper_url) values (${userId}, ${url})
+    on conflict (user_id) do update set wallpaper_url = excluded.wallpaper_url`;
+}
+
+/** Sizes for the Storage pane and About: code per app and data per app. */
+export async function storageStats(userId: number) {
+  const apps = await sql<{ slug: string; name: string; icon_url: string; code: number; versions: number; data: number; version: number | null }[]>`
+    select a.slug, a.name, a.icon_url,
+      coalesce((select sum(length(v.code)) from app_versions v where v.app_id = a.id), 0)::int as code,
+      (select count(*) from app_versions v where v.app_id = a.id)::int as versions,
+      coalesce((select sum(length(d.value::text)) from app_data d where d.app_id = a.id), 0)::int as data,
+      cv.version
+    from apps a left join app_versions cv on cv.id = a.current_version_id
+    where a.user_id = ${userId} and a.deleted_at is null order by a.position, a.id`;
+  return apps;
+}
+
+/** Everything the user owns, for Time Machine's backup. */
+export async function exportAll(userId: number) {
+  const apps = await sql<{ slug: string; name: string; description: string; version: number | null }[]>`
+    select a.slug, a.name, a.description, v.version from apps a left join app_versions v on v.id = a.current_version_id
+    where a.user_id = ${userId} and a.deleted_at is null order by a.position`;
+  const data = await sql<{ slug: string; key: string; value: unknown }[]>`
+    select a.slug, d.key, d.value from app_data d join apps a on a.id = d.app_id where a.user_id = ${userId} order by a.slug, d.key`;
+  const settings = await getSettings(userId);
+  return { exported_at: new Date().toISOString(), apps, data, settings };
+}
+
+/** Erase All Content and Settings: every app, its code and data, and the preferences. Defaults are re-seeded. */
+export async function eraseAll(userId: number) {
+  await sql`delete from apps where user_id = ${userId}`;
+  await sql`delete from user_settings where user_id = ${userId}`;
+  await seedDefaultApps(userId);
 }

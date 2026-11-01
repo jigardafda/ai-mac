@@ -14,6 +14,8 @@ export const WINDOW_SIZES: Record<string, { w: number; h: number; minW?: number;
   music: { w: 1140, h: 720, minW: 820, minH: 480 },
   bomberman: { w: 1240, h: 720, minW: 700, minH: 420 },
   roadrash: { w: 1200, h: 840, minW: 640, minH: 480 },
+  settings: { w: 760, h: 600, minW: 640, minH: 440 },
+  terminal: { w: 700, h: 440, minW: 420, minH: 240 },
 };
 export const DEFAULT_MIN = { minW: 520, minH: 320 };
 
@@ -84,3 +86,11 @@ export const DEFAULT_APPS: CatalogApp[] = [
 ];
 
 export const NEW_APP_SLUG = "new-app";
+
+/** Apps that are part of the system itself, rendered by the shell rather than generated. */
+export const BUILTIN_APPS = [
+  { slug: "settings", name: "System Settings", icon: "/icons/settings.png", description: "Appearance, wallpaper, dock, displays, notifications, users, privacy and everything else about this Mac." },
+  { slug: "terminal", name: "Terminal", icon: "/icons/terminal.png", description: "A zsh style shell over your apps and their data." },
+] as const;
+export type BuiltinSlug = (typeof BUILTIN_APPS)[number]["slug"];
+export const isBuiltin = (slug: string): slug is BuiltinSlug => BUILTIN_APPS.some((b) => b.slug === slug);

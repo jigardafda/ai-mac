@@ -27,6 +27,15 @@ export async function verifyUser(email: string, password: string): Promise<Sessi
   return (await bcrypt.compare(password, u.password_hash)) ? { id: u.id, email: u.email } : null;
 }
 
+/** Changes the password after checking the current one. */
+export async function changePassword(userId: number, current: string, next: string): Promise<boolean> {
+  const [u] = await sql<{ password_hash: string }[]>`select password_hash from users where id = ${userId}`;
+  if (!u || !(await bcrypt.compare(current, u.password_hash))) return false;
+  const hash = await bcrypt.hash(next, 10);
+  await sql`update users set password_hash = ${hash} where id = ${userId}`;
+  return true;
+}
+
 export async function setSession(user: SessionUser) {
   const token = await new SignJWT({ email: user.email })
     .setProtectedHeader({ alg: "HS256" })

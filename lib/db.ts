@@ -50,6 +50,7 @@ create table if not exists user_settings (
   dock_slugs text[] not null default '{}'
 );
 alter table apps add column if not exists deleted_at timestamptz;
+alter table user_settings add column if not exists prefs jsonb not null default '{}'::jsonb;
 `;
 
 /** Applies the schema once per process, and again whenever it changes under a

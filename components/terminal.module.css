@@ -1,0 +1,49 @@
+/* Terminal.app "Basic" profile: white, Menlo 11pt, black text */
+.term {
+  height: 100%;
+  overflow: auto;
+  padding: 4px 6px;
+  background: #fff;
+  color: #000;
+  font: 11px/1.35 Menlo, "SF Mono", ui-monospace, Monaco, Consolas, monospace;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.in {
+  color: #000;
+}
+
+.err {
+  color: #c41a16;
+}
+
+.promptLine {
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+}
+
+.prompt {
+  white-space: pre;
+}
+
+.input {
+  flex: 1;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  outline: none;
+  font: inherit;
+  color: inherit;
+  caret-color: #000;
+}

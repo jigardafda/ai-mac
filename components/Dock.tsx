@@ -10,15 +10,14 @@ export type DockEntry =
   | { kind: "trash" }
   | { kind: "sep" };
 
-const BASE = 52; // icon size at rest
-const MAX = 92; // icon size under the cursor
 const GAP = 6;
 const SEP_W = 1 + 2 * 7;
 const REACH = 2.6; // how many icons either side feel the cursor
 
 /** The macOS dock: translucent bar, icons that magnify around the cursor, tooltips,
  *  running dots, a bounce while an app is being built, minimised windows on the right. */
-export function Dock({ entries, onApp, onMin, onNew, onTrash, onContext }: { entries: DockEntry[]; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void; onContext: (e: React.MouseEvent, entry: DockEntry) => void }) {
+export function Dock({ entries, size: iconSize = 52, magnify = true, maxSize = 92, onApp, onMin, onNew, onTrash, onContext }: { entries: DockEntry[]; size?: number; magnify?: boolean; maxSize?: number; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void; onContext: (e: React.MouseEvent, entry: DockEntry) => void }) {
+  const BASE = iconSize, MAX = Math.max(iconSize, maxSize);
   const [mouseX, setMouseX] = useState<number | null>(null);
   const el = useRef<HTMLElement>(null);
 
@@ -31,7 +30,7 @@ export function Dock({ entries, onApp, onMin, onNew, onTrash, onContext }: { ent
   const centres = widths.reduce<{ acc: number; out: number[] }>((s, w) => ({ acc: s.acc + w + GAP, out: [...s.out, s.acc + w / 2] }), { acc: start, out: [] }).out;
 
   const size = (i: number) => {
-    if (mouseX === null || entries[i].kind === "sep") return widths[i];
+    if (!magnify || mouseX === null || entries[i].kind === "sep") return widths[i];
     const d = Math.abs(mouseX - centres[i]) / (BASE + GAP);
     if (d >= REACH) return BASE;
     const t = (Math.cos((d / REACH) * Math.PI) + 1) / 2; // 1 under the cursor, 0 at the reach
@@ -39,7 +38,7 @@ export function Dock({ entries, onApp, onMin, onNew, onTrash, onContext }: { ent
   };
 
   return (
-    <nav ref={el} className={styles.dock} aria-label="Dock" onMouseMove={(e) => setMouseX(e.clientX)} onMouseLeave={() => setMouseX(null)}>
+    <nav ref={el} className={styles.dock} style={{ height: BASE + 16 }} aria-label="Dock" onMouseMove={(e) => setMouseX(e.clientX)} onMouseLeave={() => setMouseX(null)}>
       {entries.map((e, i) => {
         if (e.kind === "sep") return <span key={`sep-${i}`} className={styles.sep} />;
         const s = size(i);

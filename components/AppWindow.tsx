@@ -19,6 +19,8 @@ type Props = {
   onNotify: (text: string) => void;
   onBuilt: (kind: "build" | "improve", version: number | null) => void;
   onBuilding: (building: boolean) => void;
+  onTitleDoubleClick?: () => void;
+  content?: React.ReactNode; // a built-in app rendered by the shell instead of a generated page
 };
 
 type Progress = { kind: "build" | "improve"; status: string; chars: number; lines: string[]; started: number };
@@ -32,7 +34,7 @@ const HANDLES: { mode: ResizeMode; cls: string; cursor: string }[] = [
 ];
 const mmss = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 
-export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimise, onZoom, onChange, onOpen, onNotify, onBuilt, onBuilding }: Props) {
+export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimise, onZoom, onChange, onOpen, onNotify, onBuilt, onBuilding, onTitleDoubleClick, content }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [pending, setPending] = useState<Progress | null>(null); // an update running while the current app stays usable
   const [showCode, setShowCode] = useState(false);
@@ -128,7 +130,7 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
     }
   }
 
-  useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, [load]);
+  useEffect(() => { if (content) return; const t = setTimeout(load, 0); return () => clearTimeout(t); }, [load, content]);
 
   // Commands from the menus: improve, rebuild, and Edit menu commands forwarded into the app.
   useEffect(() => {
@@ -217,7 +219,7 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
 
   return (
     <section className={cls} style={style} onPointerDown={onFocus} onAnimationEnd={() => !win.opened && onChange({ opened: true })} aria-label={win.title} data-slug={win.slug}>
-      <div className={`${styles.titlebar} ${chrome ? styles.titlebarCustom : ""}`} style={barStyle} onPointerDown={start("move")} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onDoubleClick={onZoom}>
+      <div className={`${styles.titlebar} ${chrome ? styles.titlebarCustom : ""}`} style={barStyle} onPointerDown={start("move")} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onDoubleClick={onTitleDoubleClick ?? onZoom}>
         <span className={styles.lights} onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
           <button className={styles.close} onClick={onClose} aria-label="Close"><svg viewBox="0 0 12 12"><path d="M3.5 3.5l5 5M8.5 3.5l-5 5" /></svg></button>
           <button className={styles.mini} onClick={onMinimise} aria-label="Minimise"><svg viewBox="0 0 12 12"><path d="M2.5 6h7" /></svg></button>
@@ -225,7 +227,7 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
         </span>
         <span className={styles.title} style={chrome ? { color: chrome.fg } : undefined}>{win.title}</span>
         <span className={styles.tools} onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
-          {phase.kind === "ready" && !pending ? (
+          {!content && phase.kind === "ready" && !pending ? (
             // One quiet control, shown when the pointer is on the title bar. Rebuild and the version live in the app menu.
             <button className={styles.tool} style={chrome ? { color: chrome.fg } : undefined} onClick={() => setImproveOpen((v) => !v)} title={`Improve this app (version ${phase.version})`} aria-label="Improve this app">
               <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><path d="M6 0l1.2 3.4L10.5 4.5 7.2 5.7 6 9 4.8 5.7 1.5 4.5l3.3-1.1zM10 7l.6 1.6 1.4.4-1.4.5L10 11l-.6-1.5L8 9l1.4-.4z" /></svg>
@@ -252,7 +254,7 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
       ) : null}
 
       <div className={styles.body}>
-        {phase.kind === "ready" ? (
+        {content ? <div className={styles.builtin}>{content}</div> : phase.kind === "ready" ? (
           <iframe ref={frame} className={styles.frame} title={win.title} data-slug={win.slug} sandbox="allow-scripts allow-forms allow-downloads allow-pointer-lock" allow="clipboard-read; clipboard-write" srcDoc={phase.html} />
         ) : phase.kind === "building" ? (
           <div className={styles.building}>

@@ -1,4 +1,4 @@
-# AI Computer
+# AI Mac
 
 A desktop in the browser whose apps do not exist until you open them.
 

@@ -45,9 +45,44 @@ export const BRIDGE_SCRIPT = `
 })();
 </script>`;
 
+/**
+ * macOS baseline every app inherits: system font, overlay scrollbars that only
+ * show while the pointer is over a scrolling area, AppKit sized fields with the
+ * blue focus ring, and layouts that cannot scroll sideways. Apps may restyle
+ * on top of it, but a plain <input> already looks right.
+ */
+export const BASE_CSS = `
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;font-size:13px;line-height:1.3;color:rgba(0,0,0,.85);user-select:none;overflow-x:hidden}
+input,textarea,[contenteditable]{user-select:text}
+/* overlay scrollbars like macOS: no track, thumb only while hovering the scroller */
+*{scrollbar-width:thin;scrollbar-color:transparent transparent}
+*:hover{scrollbar-color:rgba(0,0,0,.28) transparent}
+::-webkit-scrollbar{width:9px;height:9px;background:transparent}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:transparent;border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+*:hover>::-webkit-scrollbar-thumb,*:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.28);background-clip:padding-box}
+/* AppKit controls */
+input,select,textarea,button{font:inherit;color:inherit;max-width:100%;min-width:0}
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select,textarea{appearance:none;-webkit-appearance:none;height:28px;padding:0 9px;border:1px solid rgba(0,0,0,.14);border-radius:6px;background:#fff;box-shadow:inset 0 .5px 1px rgba(0,0,0,.06);outline:none;transition:box-shadow .12s,border-color .12s}
+textarea{height:auto;min-height:64px;padding:6px 9px;line-height:1.4;resize:vertical}
+select{padding-right:26px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><rect x='1' y='1' width='14' height='14' rx='4' fill='%230a60ff'/><path d='M5 6.6l3-3 3 3M5 9.4l3 3 3-3' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 5px center;background-size:16px 16px}
+input:focus,select:focus,textarea:focus{border-color:#007aff;box-shadow:0 0 0 3px rgba(0,122,255,.3)}
+input::placeholder,textarea::placeholder{color:rgba(60,60,67,.45)}
+input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none}
+input[type=checkbox],input[type=radio]{width:14px;height:14px;margin:0 6px 0 0;accent-color:#0a60ff;vertical-align:-2px}
+input[type=range]{height:auto;padding:0;border:0;background:none;box-shadow:none;accent-color:#0a60ff}
+label{font-size:13px}
+/* layouts never overflow sideways; grid and flex children shrink instead */
+[style*="display:grid"]>*,[style*="display: grid"]>*,[style*="display:flex"]>*,[style*="display: flex"]>*{min-width:0}
+img,canvas,svg,video{max-width:100%}
+`.replace(/\n\s*/g, "");
+
 /** Wraps generated HTML so the bridge is always present and the page fills the window. */
 export function wrapApp(html: string): string {
-  const base = `<style>html,body{margin:0;height:100%;}body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;font-size:13px;color:rgba(0,0,0,.85);user-select:none;}input,textarea,[contenteditable]{user-select:text;}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.25);border-radius:8px;border:2px solid transparent;background-clip:padding-box}::-webkit-scrollbar-track{background:transparent}</style>`;
+  const base = `<style>${BASE_CSS}</style>`;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head([^>]*)>/i, `<head$1>${base}${BRIDGE_SCRIPT}`);
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${base}${BRIDGE_SCRIPT}</head><body>${html}</body></html>`;
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Computer",
+  title: "AI Mac",
   description: "A desktop whose apps are written the moment you open them.",
 };
 

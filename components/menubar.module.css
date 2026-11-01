@@ -119,7 +119,7 @@
 
 .row:hover:not(:disabled),
 .rowBlinkOn {
-  background: #0a60ff;
+  background: var(--accent, #0a60ff);
   color: #fff;
 }
 

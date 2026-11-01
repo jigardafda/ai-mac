@@ -10,5 +10,5 @@ export default async function DesktopPage() {
   if (!user) redirect("/login");
   await seedDefaultApps(user.id); // adds any default app this desktop does not have yet
   const [apps, settings] = await Promise.all([listApps(user.id), getSettings(user.id)]);
-  return <Desktop user={user} initialApps={apps} dockSlugs={settings.dock_slugs} wallpaper={settings.wallpaper_url ?? "/wallpaper.jpg"} />;
+  return <Desktop user={user} initialApps={apps} dockSlugs={settings.dock_slugs} wallpaper={settings.wallpaper_url ?? "/wallpaper.jpg"} prefs={settings.prefs ?? {}} />;
 }

@@ -27,7 +27,7 @@ export default function LoginPage() {
     <main className={styles.page}>
       <form className={styles.card} onSubmit={submit}>
         <div className={styles.logo} aria-hidden="true" />
-        <h1 className={styles.title}>AI Computer</h1>
+        <h1 className={styles.title}>AI Mac</h1>
         <p className={styles.sub}>{mode === "login" ? "Sign in to your desktop." : "Create your desktop. Every app on it is written the first time you open it."}</p>
         <label className={styles.label}>
           Email
