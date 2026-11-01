@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - The OpenAI client is created on first use, so the desktop and every shipped app work without an API key.
 
 ### Fixed
+- Sign-in and admin codes are bound to their purpose, so one cannot be used for the other.
+- A burst of parallel code requests could slip past the cooldown and hourly limits; they are now enforced under a lock.
+- The admin sign-in request answers every address identically and instantly, so it no longer reveals which addresses are admins.
 - A first-name check could be probed anonymously to learn whether an address had an account; it now needs a live code for that address.
 - Bomberman enemies no longer freeze in place.
 

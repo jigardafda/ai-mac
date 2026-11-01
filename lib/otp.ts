@@ -41,28 +41,34 @@ export type IssueResult = { ok: true; challenge: string; isNew: boolean } | { ok
 
 export type Purpose = "signin" | "admin";
 
-export async function issueCode(email: string, ip: string, purpose: Purpose = "signin"): Promise<IssueResult> {
+export async function issueCode(email: string, ip: string, purpose: Purpose = "signin", challenge: string = randomBytes(32).toString("hex")): Promise<IssueResult> {
   await ensureSchema();
   const [account] = await sql<{ name: string | null }[]>`select name from users where email = ${email}`;
   const name = account?.name ?? "";
-  const [lim] = await sql<{ recent: number; last_secs: number | null; by_ip: number }[]>`
-    select
-      count(*) filter (where email = ${email} and created_at > now() - interval '1 hour')::int as recent,
-      extract(epoch from now() - max(created_at) filter (where email = ${email}))::float as last_secs,
-      count(*) filter (where ip = ${ip} and created_at > now() - interval '1 hour')::int as by_ip
-    from login_codes where created_at > now() - interval '1 hour'`;
-  if (lim.last_secs !== null && lim.last_secs < COOLDOWN_SECONDS) return { ok: false, status: 429, error: `Wait ${Math.ceil(COOLDOWN_SECONDS - lim.last_secs)} seconds before asking for another code.` };
-  if (lim.recent >= MAX_PER_EMAIL_PER_HOUR || lim.by_ip >= MAX_PER_IP_PER_HOUR) return { ok: false, status: 429, error: "Too many codes requested. Try again in an hour." };
-
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const challenge = randomBytes(32).toString("hex");
-  await sql`update login_codes set used_at = now() where email = ${email} and used_at is null`;
-  await sql`insert into login_codes (email, name, code_hash, challenge_hash, ip, expires_at)
-            values (${email}, ${name}, ${hashCode(email, code)}, ${hashChallenge(challenge)}, ${ip}, now() + ${TTL_MINUTES} * interval '1 minute')`;
+  // The limits are checked and the code inserted under a lock per address and per IP, so a burst of
+  // parallel requests cannot all pass the check before any of them is counted.
+  const refused = await sql.begin(async (tx): Promise<IssueResult | null> => {
+    await tx`select pg_advisory_xact_lock(hashtext(${"e:" + email}))`;
+    await tx`select pg_advisory_xact_lock(hashtext(${"i:" + ip}))`;
+    const [lim] = await tx<{ recent: number; last_secs: number | null; by_ip: number }[]>`
+      select
+        count(*) filter (where email = ${email} and created_at > now() - interval '1 hour')::int as recent,
+        extract(epoch from now() - max(created_at) filter (where email = ${email}))::float as last_secs,
+        count(*) filter (where ip = ${ip} and created_at > now() - interval '1 hour')::int as by_ip
+      from login_codes where created_at > now() - interval '1 hour'`;
+    if (lim.last_secs !== null && lim.last_secs < COOLDOWN_SECONDS) return { ok: false, status: 429, error: `Wait ${Math.ceil(COOLDOWN_SECONDS - lim.last_secs)} seconds before asking for another code.` };
+    if (lim.recent >= MAX_PER_EMAIL_PER_HOUR || lim.by_ip >= MAX_PER_IP_PER_HOUR) return { ok: false, status: 429, error: "Too many codes requested. Try again in an hour." };
+    await tx`update login_codes set used_at = now() where email = ${email} and purpose = ${purpose} and used_at is null`;
+    await tx`insert into login_codes (email, name, code_hash, challenge_hash, purpose, ip, expires_at)
+             values (${email}, ${name}, ${hashCode(email, code)}, ${hashChallenge(challenge)}, ${purpose}, ${ip}, now() + ${TTL_MINUTES} * interval '1 minute')`;
+    return null;
+  });
+  if (refused) return refused;
   try {
     await sendCodeEmail(email, name, code, purpose);
   } catch (e) {
-    await sql`update login_codes set used_at = now() where email = ${email} and used_at is null`;
+    await sql`update login_codes set used_at = now() where email = ${email} and purpose = ${purpose} and used_at is null`;
     console.error("Could not send the sign-in email:", e instanceof Error ? e.message : e);
     return { ok: false, status: 502, error: "Could not send the email. Try again in a moment." };
   }
@@ -70,10 +76,10 @@ export async function issueCode(email: string, ip: string, purpose: Purpose = "s
 }
 
 /** Whether this browser holds a live code for the address, without spending a try. */
-export async function hasPendingCode(email: string, challenge: string): Promise<boolean> {
+export async function hasPendingCode(email: string, challenge: string, purpose: Purpose = "signin"): Promise<boolean> {
   if (!/^[0-9a-f]{64}$/.test(challenge)) return false;
   await ensureSchema();
-  const [r] = await sql`select 1 from login_codes where email = ${email} and challenge_hash = ${hashChallenge(challenge)}
+  const [r] = await sql`select 1 from login_codes where email = ${email} and purpose = ${purpose} and challenge_hash = ${hashChallenge(challenge)}
     and used_at is null and expires_at > now() and attempts < ${MAX_ATTEMPTS} limit 1`;
   return !!r;
 }
@@ -85,14 +91,14 @@ export type VerifyResult = { ok: true; name: string } | { ok: false; error: stri
  * nothing is counted or checked, so a stranger who knows only the address cannot use up
  * someone else's five tries.
  */
-export async function verifyCode(email: string, code: string, challenge: string): Promise<VerifyResult> {
+export async function verifyCode(email: string, code: string, challenge: string, purpose: Purpose = "signin"): Promise<VerifyResult> {
   await ensureSchema();
   const bad: VerifyResult = { ok: false, error: "That code is wrong or has expired." };
   if (!/^\d{6}$/.test(code) || !/^[0-9a-f]{64}$/.test(challenge)) return bad;
   // Count the try first, atomically, so parallel guesses cannot beat the limit.
   const [row] = await sql<{ id: number; name: string; code_hash: string; attempts: number }[]>`
     update login_codes set attempts = attempts + 1
-    where id = (select id from login_codes where email = ${email} and challenge_hash = ${hashChallenge(challenge)}
+    where id = (select id from login_codes where email = ${email} and purpose = ${purpose} and challenge_hash = ${hashChallenge(challenge)}
                   and used_at is null and expires_at > now() order by created_at desc limit 1)
       and attempts < ${MAX_ATTEMPTS}
     returning id, name, code_hash, attempts`;
