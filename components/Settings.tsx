@@ -181,7 +181,7 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
             {(stats?.apps ?? []).map((a) => <Row key={a.slug} label={<span className={styles.appLabel}><img src={a.icon_url} alt="" width={20} height={20} />{a.name}</span>} sub={`${a.versions} version${a.versions === 1 ? "" : "s"}${a.version ? ", current v" + a.version : ", not built"}`}><span className={styles.val}>{fmtBytes(a.code + a.data)}</span></Row>)}
           </Group>
         </>; }
-        case "applecare": return <Group><Row label="AI Mac" sub="Coverage: experimental software, no warranty expressed or implied" /><Row label="Support" sub="Open an issue in the gofynd/ai-computer repository" /></Group>;
+        case "applecare": return <Group><Row label="AI Mac" sub="Coverage: experimental software, no warranty expressed or implied" /><Row label="Support" sub="Open an issue in the jigardafda/ai-mac repository" /></Group>;
         case "airdrop": return <Group>
           <Row label="AirDrop"><Sel value={p("airdrop", "off")} options={[["off", "No One"], ["contacts", "Contacts Only"], ["everyone", "Everyone"]]} onChange={(v) => set("airdrop", v)} /></Row>
           <Row label="Allow Handoff between this Mac and your other devices"><Toggle on={p("handoff", false)} onChange={(v) => set("handoff", v)} /></Row>
