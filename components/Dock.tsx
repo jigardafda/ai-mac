@@ -7,6 +7,7 @@ export type DockEntry =
   | { kind: "app"; slug: string; name: string; icon: string; running: boolean; building: boolean }
   | { kind: "min"; winId: number; slug: string; name: string; icon: string }
   | { kind: "new" }
+  | { kind: "trash" }
   | { kind: "sep" };
 
 const BASE = 52; // icon size at rest
@@ -17,7 +18,7 @@ const REACH = 2.6; // how many icons either side feel the cursor
 
 /** The macOS dock: translucent bar, icons that magnify around the cursor, tooltips,
  *  running dots, a bounce while an app is being built, minimised windows on the right. */
-export function Dock({ entries, onApp, onMin, onNew }: { entries: DockEntry[]; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void }) {
+export function Dock({ entries, onApp, onMin, onNew, onTrash }: { entries: DockEntry[]; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void }) {
   const [mouseX, setMouseX] = useState<number | null>(null);
   const el = useRef<HTMLElement>(null);
 
@@ -49,6 +50,16 @@ export function Dock({ entries, onApp, onMin, onNew }: { entries: DockEntry[]; o
               <span className={styles.tip}>New app</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/icons/new-app.png" alt="" draggable={false} />
+            </button>
+          );
+        }
+        if (e.kind === "trash") {
+          return (
+            <button key="trash" {...common} onClick={onTrash} aria-label="Trash" data-dock="trash">
+              <span className={styles.tip}>Trash</span>
+              <span className={styles.trash}>
+                <svg viewBox="0 0 48 56" fill="none"><path d="M9 14h30l-2.4 36.2A3 3 0 0 1 33.6 53H14.4a3 3 0 0 1-3-2.8L9 14Z" fill="url(#tg)" /><rect x="6" y="9" width="36" height="5" rx="2" fill="#f3f3f6" /><path d="M18 9V6a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v3" stroke="#d6d6dc" strokeWidth="2.5" /><path d="M17 20v28M24 20v28M31 20v28" stroke="rgba(0,0,0,0.12)" strokeWidth="2" strokeLinecap="round" /><defs><linearGradient id="tg" x1="0" x2="1"><stop offset="0" stopColor="#dedee4" /><stop offset=".5" stopColor="#f4f4f7" /><stop offset="1" stopColor="#d4d4db" /></linearGradient></defs></svg>
+              </span>
             </button>
           );
         }

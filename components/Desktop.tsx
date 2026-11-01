@@ -190,7 +190,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
       { label: `Sign Out ${user.email}…`, action: signOut },
     ] },
     { key: "app", title: activeWin ? activeWin.title : "Finder", bold: true, items: activeWin ? [
-      { label: `About ${activeWin.title}`, hint: "written by AI", disabled: true }, "sep",
+      { label: `About ${activeWin.title}`, hint: `version ${apps.find((a) => a.slug === activeWin.slug)?.version ?? "?"}, written by AI`, disabled: true }, "sep",
       { label: "Improve This App…", action: () => winCmd("improve") },
       { label: "Rebuild From Scratch", action: () => winCmd("rebuild") }, "sep",
       { label: "Close Window", shortcut: `${K}W`, action: () => close(activeWin.id) },
@@ -208,7 +208,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
     ] },
     { key: "view", title: "View", items: [
       { label: "Clean Up", action: () => setSelected(null) }, "sep",
-      { label: document.fullscreenElement ? "Exit Full Screen" : "Enter Full Screen", shortcut: `⌃${K}F`, action: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()) },
+      { label: typeof document !== "undefined" && document.fullscreenElement ? "Exit Full Screen" : "Enter Full Screen", shortcut: `⌃${K}F`, action: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()) },
     ] },
     { key: "window", title: "Window", items: [
       { label: "Minimise", shortcut: `${K}M`, disabled: !activeWin, action: () => activeWin && minimise(activeWin.id) },
@@ -231,7 +231,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
     const running = apps.filter((a) => !dockSlugs.includes(a.slug) && openWins.some((w) => w.slug === a.slug));
     const e: DockEntry[] = [...inDock, ...running].map((a) => ({ kind: "app", slug: a.slug, name: a.name, icon: a.icon_url, running: openWins.some((w) => w.slug === a.slug), building: building.has(a.slug) }));
     if (minWins.length) e.push({ kind: "sep" }, ...minWins.map((w) => ({ kind: "min" as const, winId: w.id, slug: w.slug, name: w.title, icon: apps.find((a) => a.slug === w.slug)?.icon_url || "/icons/new-app.png" })));
-    e.push({ kind: "sep" }, { kind: "new" });
+    e.push({ kind: "sep" }, { kind: "new" }, { kind: "trash" });
     return e;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apps, dockSlugs, wins, building]);
@@ -276,7 +276,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper }: { user: { i
           onBuilding={(b) => setBuilding((s) => { const n = new Set(s); if (b) n.add(w.slug); else n.delete(w.slug); return n; })} />
       ))}
 
-      <Dock entries={dockEntries} onApp={(s) => open(s)} onMin={(id) => focus(id)} onNew={() => setNewOpen(true)} />
+      <Dock entries={dockEntries} onApp={(s) => open(s)} onMin={(id) => focus(id)} onNew={() => setNewOpen(true)} onTrash={() => notify("The Trash is empty. Apps you remove from the desktop end up here.", "Trash")} />
 
       {newOpen ? (
         <div className={styles.sheetBack} onMouseDown={() => !creating && setNewOpen(false)}>

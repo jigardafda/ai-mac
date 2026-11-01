@@ -225,32 +225,32 @@
 }
 
 .tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
   height: 20px;
-  padding: 0 8px;
-  border: 0.5px solid rgba(0, 0, 0, 0.18);
+  padding: 0;
+  border: 0;
   border-radius: 5px;
-  background: linear-gradient(#fff, #f3f3f3);
-  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
-  font-size: 11px;
-  color: rgba(0, 0, 0, 0.8);
+  background: none;
+  color: rgba(0, 0, 0, 0.5);
   cursor: default;
-  transition: transform 0.1s, background 0.1s;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.1s, transform 0.1s;
+}
+
+.titlebar:hover .tool,
+.tool:focus-visible {
+  opacity: 1;
 }
 
 .tool:hover {
-  background: linear-gradient(#fff, #ebebeb);
+  background: rgba(0, 0, 0, 0.07);
+  color: rgba(0, 0, 0, 0.8);
 }
 
 .tool:active {
-  background: #e4e4e4;
-  transform: scale(0.97);
-}
-
-.window:not(.windowActive) .tool {
-  opacity: 0.6;
+  transform: scale(0.94);
 }
 
 .improve {

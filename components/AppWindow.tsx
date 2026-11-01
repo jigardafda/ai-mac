@@ -163,14 +163,12 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
         </span>
         <span className={styles.title}>{win.title}</span>
         <span className={styles.tools} onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
-          {phase.kind === "ready" ? <>
-            <button className={styles.tool} onClick={() => setImproveOpen((v) => !v)} title="Describe a change and the app is rewritten">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 0l1.2 3.4L10.5 4.5 7.2 5.7 6 9 4.8 5.7 1.5 4.5l3.3-1.1zM10 7l.6 1.6 1.4.4-1.4.5L10 11l-.6-1.5L8 9l1.4-.4z" /></svg>
-              Improve
+          {phase.kind === "ready" ? (
+            // One quiet control, shown when the pointer is on the title bar. Rebuild and the version live in the app menu.
+            <button className={styles.tool} onClick={() => setImproveOpen((v) => !v)} title={`Improve this app (version ${phase.version})`} aria-label="Improve this app">
+              <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><path d="M6 0l1.2 3.4L10.5 4.5 7.2 5.7 6 9 4.8 5.7 1.5 4.5l3.3-1.1zM10 7l.6 1.6 1.4.4-1.4.5L10 11l-.6-1.5L8 9l1.4-.4z" /></svg>
             </button>
-            <button className={styles.tool} onClick={() => build("build")} title="Throw the code away and write it again">Rebuild</button>
-            {phase.version ? <span className={styles.ver}>v{phase.version}</span> : null}
-          </> : null}
+          ) : null}
         </span>
       </div>
 
