@@ -55,6 +55,12 @@ lib/              db, auth, catalog of default apps, generation, sandbox bridge,
 public/           generated wallpaper and icons
 ```
 
+## How the look is kept honest
+
+The shell follows macOS measurements (24px menu bar, 28px title bar, 12px traffic lights 8px apart, 22px menu rows, dock magnification, zoom-from-icon, minimise-to-dock). Each default app's brief in `lib/catalog.ts` names the real macOS app and describes its layout, and the system prompt in `lib/generate.ts` carries a macOS design system (colours, control sizes, typography, motion).
+
+To check fidelity, screenshots of each app are taken with Playwright and reviewed by a second model (Codex CLI, `codex exec -i screenshot.png`), which lists the most visible differences from the real app. Those findings go back into the briefs, and "Rebuild" writes the app again. The default apps always build from the current brief, so an old desktop picks up improvements when it rebuilds.
+
 ## Known limits
 
 - A build takes about a minute and costs a model call; a desktop with many users builds each app once per user.
