@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Retro Bomber</title>
+<title>Bomberman</title>
 <style>
   html,body{height:100%;margin:0;overflow:hidden;background:#000;color:#fcfcfc;font:13px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif}
   *{box-sizing:border-box}
@@ -19,7 +19,7 @@
 (() => {
 'use strict';
 const aic=window.aic||{storage:{async get(){return null},async set(){}},setTitle(){},setTitlebar(){},notify(){}};
-aic.setTitle?.('Retro Bomber'); aic.setTitlebar?.('#000000','#ffffff');
+aic.setTitle?.('Bomberman'); aic.setTitlebar?.('#000000','#ffffff');
 
 const cvs=document.getElementById('game'),ctx=cvs.getContext('2d');
 ctx.imageSmoothingEnabled=false;
