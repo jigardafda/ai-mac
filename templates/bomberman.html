@@ -240,12 +240,13 @@ function updateFlames(dt){
 function updateEnemies(dt){
   const p=game.player;
   for(const e of game.enemies){if(e.dead)continue;
-    const cx=Math.floor(e.x/T)*T+8,cy=HUD+Math.floor((e.y-HUD)/T)*T+8,centered=Math.abs(e.x-cx)<1.2&&Math.abs(e.y-cy)<1.2;
-    if(centered){e.x=cx;e.y=cy;let opts=dirsAvailable(e.x,e.y,e),rev={L:'R',R:'L',U:'D',D:'U'}[e.dir];
+    // Decide once per tile, on arrival at its centre. Deciding every frame inside the centre window snapped slow enemies back to the centre each frame, so they never left it.
+    const tx=Math.floor(e.x/T),ty=Math.floor((e.y-HUD)/T),cx=tx*T+8,cy=HUD+ty*T+8,reach=Math.max(1.2,e.speed*dt*1.01),centered=Math.abs(e.x-cx)<reach&&Math.abs(e.y-cy)<reach,key=tx+','+ty;
+    if(centered&&e.decided!==key){e.decided=key;e.x=cx;e.y=cy;let opts=dirsAvailable(e.x,e.y,e),rev={L:'R',R:'L',U:'D',D:'U'}[e.dir];
       if(!opts.includes(e.dir)||opts.length>2||Math.random()<.16){let choices=opts.filter(d=>d!==rev);if(!choices.length)choices=opts;if(Math.random()<e.def.chase){const want=Math.abs(p.x-e.x)>Math.abs(p.y-e.y)?(p.x<e.x?'L':'R'):(p.y<e.y?'U':'D');e.dir=choices.includes(want)?want:(choices[Math.floor(Math.random()*choices.length)]||rev||'L')}else e.dir=choices[Math.floor(Math.random()*choices.length)]||rev||'L'}
     }
     let vx=0,vy=0;if(e.dir==='L')vx=-1;if(e.dir==='R')vx=1;if(e.dir==='U')vy=-1;if(e.dir==='D')vy=1;
-    const ox=e.x,oy=e.y;e.x+=vx*e.speed*dt;e.y+=vy*e.speed*dt;if(!canStand(e.x,e.y,e)){e.x=ox;e.y=oy;e.dir=pickDir()}
+    const ox=e.x,oy=e.y;e.x+=vx*e.speed*dt;e.y+=vy*e.speed*dt;if(!canStand(e.x,e.y,e)){e.x=ox;e.y=oy;e.dir=pickDir();e.decided=null}
   }
 }
 function dirsAvailable(px,py,who){const tx=Math.floor(px/T),ty=Math.floor((py-HUD)/T),a=[];if(!solidTile(tx-1,ty,who))a.push('L');if(!solidTile(tx+1,ty,who))a.push('R');if(!solidTile(tx,ty-1,who))a.push('U');if(!solidTile(tx,ty+1,who))a.push('D');return a}
