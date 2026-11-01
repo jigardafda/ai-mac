@@ -63,9 +63,9 @@ export async function getApp(userId: number, slug: string): Promise<AppRow | nul
   return a ?? null;
 }
 
-export async function getCurrentCode(appId: number): Promise<{ code: string; version: number } | null> {
-  const [v] = await sql<{ code: string; version: number }[]>`
-    select v.code, v.version from apps a join app_versions v on v.id = a.current_version_id where a.id = ${appId}`;
+export async function getCurrentCode(appId: number): Promise<{ code: string; version: number; prompt: string } | null> {
+  const [v] = await sql<{ code: string; version: number; prompt: string }[]>`
+    select v.code, v.version, v.prompt from apps a join app_versions v on v.id = a.current_version_id where a.id = ${appId}`;
   return v ?? null;
 }
 

@@ -16,8 +16,17 @@ export async function GET(_req: Request, { params }: Ctx) {
   const { slug } = await params;
   const app = await getApp(user.id, slug);
   if (!app) return NextResponse.json({ error: "No such app" }, { status: 404 });
-  const cur = await getCurrentCode(app.id);
+  let cur = await getCurrentCode(app.id);
   if (!cur) return NextResponse.json({ error: "Not built yet", app, building: Boolean(getJob(app.id)) }, { status: 404 });
+  // A copy installed from a shipped template follows the template: when the
+  // template is fixed, the next open picks the fix up as a new version.
+  if (cur.prompt === "installed from template") {
+    const tpl = await loadTemplate(slug);
+    if (tpl && tpl !== cur.code) {
+      const version = await saveVersion(app.id, tpl, "installed from template", "template");
+      cur = { code: tpl, version, prompt: "installed from template" };
+    }
+  }
   const job = getJob(app.id);
   return new Response(wrapApp(cur.code), {
     headers: { "content-type": "text/html; charset=utf-8", "x-aic-version": String(cur.version), "cache-control": "no-store", ...(job && !job.done ? { "x-aic-job": job.kind } : {}) },

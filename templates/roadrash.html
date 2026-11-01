@@ -121,7 +121,7 @@ function updateRace(dt){
   if(g.state==="crash"){g.crashT+=dt;g.speed=0;if(g.cop>0){g.copDist-=260*dt;if(g.crashT>1.3&&g.copDist<80){message="BUSTED BY COUNTY PATROL";messageT=4;audio.noise(.5,.15);finishRace(true)}}if(g.crashT>3.6){g.state="race";g.crashT=0;g.pos+=220;g.cop=Math.max(g.cop,2.5);g.copDist=760;message="RUN! THE COP IS CLOSE";messageT=2.2}return}
   let acc=0;if(keys.ArrowUp){acc=42*b.acc;g.wheelie=Math.min(1,g.wheelie+dt*3)}else g.wheelie=Math.max(0,g.wheelie-dt*4);if(keys.ArrowDown)acc-=g.speed>8?90:32;g.speed+=acc*dt;if(!keys.ArrowUp)g.speed-=18*dt;g.speed=clamp(g.speed,-25,b.max);
   if(Math.abs(g.x)>1.12&&g.speed>25)g.speed-=45*dt;let steer=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0);g.lean+=(steer-g.lean)*dt*7;g.x+=steer*dt*(.75+b.handle*.45)*(.35+g.speed/b.max);g.x+=curveAt(g.pos)*dt*g.speed*.0008;g.x=clamp(g.x,-1.65,1.65);
-  if(Math.abs(g.x)>1.33&&g.speed>45){g.damage-=dt*3;if(Math.random()<dt*.7)audio.noise(.06,.035)}g.pos+=g.speed*5*dt;if(g.pos<0){g.pos=0;if(g.speed<0){message="WRONG WAY";messageT=.4}}
+  if(Math.abs(g.x)>1.33&&g.speed>45){g.damage-=dt*3;if(Math.random()<dt*.7)audio.noise(.06,.035)}if(g.speed<0)g.speed=0;g.pos+=g.speed*5*dt;if(g.pos<0)g.pos=0;
   for(const o of g.opp){if(o.down)continue;const target=94+save.level*9+o.base.id*.7;o.speed+=(target-o.speed)*dt*.25;if(Math.abs(o.pos-g.pos)<700){if(o.base.person.includes("cuts")||o.base.person==="dirty"||o.base.person==="blocks")o.lane+=(g.x-o.lane)*dt*(.35+o.anger);else o.lane+=Math.sin(g.time+o.base.id)*dt*.22}else o.lane+=Math.sin(g.time*.6+o.base.id)*dt*.08;o.lane=clamp(o.lane,-.9,.9);o.pos+=o.speed*5*dt;if(Math.abs(o.pos-g.pos)<60&&Math.abs(o.lane-g.x)<.22&&g.speed>35){crash("RIDER TANGLE");o.down=true}}
   for(const c of g.traffic){c.dist+=c.speed*5*dt;const rel=c.dist-g.pos;if(rel<-180||rel>DRAW+1600)Object.assign(c,newTraffic(DRAW+rnd(1800)));if(rel>-30&&rel<85&&Math.abs(c.lane-g.x)<.28&&g.speed>12)crash(c.oncoming?"HEAD-ON HIT":"REAR-END HIT")}
   if(g.cop>0){g.cop-=dt;g.copDist-=Math.max(0,g.speed-55)*2*dt;if(g.copDist<120&&g.speed<18){message="BUSTED BY COUNTY PATROL";messageT=3;finishRace(true)}}
@@ -255,7 +255,7 @@ function drawHUD(){
   gauge(44,193,56,g.damage/b.armor,"#40c040","#c03030","BIKE");gauge(44,209,56,g.stamina/100,"#4080ff","#203060","RIDER");
   px("TIME "+fmtTime(g.time),162,193,"#fff",1,"center");px("TO GO "+Math.max(0,(g.len-g.pos)/8000).toFixed(1)+" MI",162,209,"#fff",1,"center");
   const pos=position();rect(242,188,54,20,"#101014");px(pos,261,190,"#fff",2,"center");px(suffix(pos),285,194,"#fff",1,"center");px("OF 15",269,213,"#fff",1,"center");
-  if(Math.abs(g.x)>1.28)px("SHOULDER",160,86,"#f0d040",1,"center");if(g.speed< -2)px("WRONG WAY",160,76,"#e03030",2,"center");if(g.cop>0)px("COP",24,88,(Math.floor(g.time*6)%2)?"#e03030":"#fff",2,"left");if(messageT>0)px(message,160,67,message.includes("BUSTED")&&Math.floor(g.time*8)%2?"#e03030":"#fff",1,"center")
+  if(Math.abs(g.x)>1.28)px("SHOULDER",160,86,"#f0d040",1,"center");if(g.cop>0)px("COP",24,88,(Math.floor(g.time*6)%2)?"#e03030":"#fff",2,"left");if(messageT>0)px(message,160,67,message.includes("BUSTED")&&Math.floor(g.time*8)%2?"#e03030":"#fff",1,"center")
 }
 function drawRace(){
   drawRoad();
