@@ -11,6 +11,7 @@ import { Glyph, MenuBar, type Menu, type MenuItem } from "./MenuBar";
 import { ACCENTS, Settings } from "./Settings";
 import { Terminal } from "./Terminal";
 import { Browser } from "./Browser";
+import { useAppMenus } from "@/lib/appmenus";
 import styles from "./desktop.module.css";
 
 export type WinState = "open" | "closing" | "minPending" | "minimising" | "min";
@@ -62,6 +63,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const restored = useRef(false);
   const lastActivity = useRef(0);
   const usageRef = useRef<Record<string, number>>({});
+  const appMenusRef = useRef<ReturnType<typeof useAppMenus>>(undefined);
   const sessionKey = `aic:session:${user.id}`;
 
   const p = useCallback(<T,>(k: string, d: T): T => (prefs[k] === undefined ? d : (prefs[k] as T)), [prefs]);
@@ -338,6 +340,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
       if (e.key === "Escape") { if (!creating) setNewOpen(false); setSpot(null); setCtx(null); setAbout(false); setTrash(null); return; }
       if (!mod) return;
       if ((e.key === "q" || e.key === "Q") && e.ctrlKey && (e.metaKey || !isMac)) { e.preventDefault(); setLocked(true); return; }
+      if (appMenusRef.current?.onKey?.(e)) { e.preventDefault(); return; }
       if (e.key === "n" || e.key === "N") { e.preventDefault(); setNewOpen(true); }
       if (e.key === " ") { e.preventDefault(); setSpot((s) => (s === null ? "" : null)); setSpotIdx(0); }
       if (e.key === ",") { e.preventDefault(); open("settings"); }
@@ -352,6 +355,8 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   /* ---------- menus ---------- */
   const activeWin = wins.find((w) => w.id === activeId && w.state === "open");
   const openWins = wins.filter((w) => w.state !== "closing");
+  const appMenus = useAppMenus(activeWin?.slug);
+  useEffect(() => { appMenusRef.current = appMenus; }, [appMenus]);
   const loginItems = p<string[]>("loginItems", []);
 
   const appMenuItems = (slug: string, fromDock = false): MenuItem[] => {
@@ -375,7 +380,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
     setCtx({ x: Math.min(e.clientX, window.innerWidth - 232), y: Math.min(e.clientY, window.innerHeight - h - 8), items });
   };
 
-  const leftMenus: Menu[] = [
+  const shellMenus: Menu[] = [
     { key: "logo", title: Glyph.logo, items: [
       { label: "About This Mac", action: () => open("settings", undefined, "about") }, "sep",
       { label: "System Settings…", shortcut: `${K},`, action: () => open("settings") },
@@ -425,6 +430,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
       { label: "Keyboard Shortcuts", action: () => open("settings", undefined, "keyboard") },
     ] },
   ];
+  const leftMenus: Menu[] = appMenus ? [shellMenus[0], ...appMenus.menus] : shellMenus;
   const mi = p<Record<string, boolean>>("menuItems", {});
   const rightMenus: Menu[] = ([
     { key: "wifi", title: Glyph.wifi, align: "right", items: [{ label: "Wi‑Fi", hint: p("wifi", true) ? "On" : "Off", action: () => setPrefs({ wifi: !p("wifi", true) }) }, "sep", { label: "AI Mac Network", checked: p("wifi", true) }, "sep", { label: "Wi‑Fi Settings…", action: () => open("settings", undefined, "wifi") }] },
@@ -465,7 +471,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const builtinContent = (w: Win) => w.slug === "settings"
     ? <Settings user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} prefs={prefs} setPrefs={setPrefs} wallpaper={wallpaper} setWallpaper={setWallpaper} dock={dock} setDock={setDock} initialPane={w.pane} onLock={() => setLocked(true)} onSignOut={signOut} onOpenApp={(s) => open(s)} notify={(t, title) => notify(t, title ?? "System Settings", "/icons/settings.png")} />
     : w.slug === "browser"
-      ? <Browser onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
+      ? <Browser prefs={prefs} setPrefs={setPrefs} isMac={isMac} notify={(t) => notify(t, "Safari", "/icons/browser.png")} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
     : w.slug === "terminal"
       ? <Terminal user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} hostname={p("hostname", "AI-Mac")} onOpen={(s) => open(s)} onClose={() => close(w.id)} onTitle={(t) => update(w.id, { title: t })} />
       : null;
