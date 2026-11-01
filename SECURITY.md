@@ -24,7 +24,7 @@ The threat model is that **generated code is untrusted**. Reports we especially 
 - **Sandbox escapes:** a generated app reading cookies, calling the API as the user, reaching the desktop page, or navigating the top window. Apps must run in `<iframe sandbox="allow-scripts">` with no `allow-same-origin`.
 - **Validator bypasses** in `lib/sandbox.ts` that let an app do something it forbids.
 - **SSRF** through `/api/browse` (reaching private, link-local or loopback addresses, redirects to them, DNS rebinding).
-- **Sign-in flaws:** guessing or replaying a code, bypassing the attempt or rate limits, account takeover, account enumeration, session fixation.
+- **Sign-in flaws:** guessing or replaying a code, bypassing the attempt or rate limits, account takeover, session fixation, or learning whether an address has an account faster than the documented rate limits allow. (The sign-in page deliberately tells new addresses from existing ones so it can ask for a first name.)
 - **Cross-user access:** reading or changing another user's apps, versions, data or files.
 - **Injection,** XSS, CSRF, header or cookie weaknesses, and leaking secrets in responses or logs.
 

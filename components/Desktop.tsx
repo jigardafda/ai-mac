@@ -688,7 +688,7 @@ function LockScreen({ email, name, message, showUser, bg, onUnlock, onSwitch }: 
   const post = (url: string, body: unknown) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   async function sendCode() {
     setNote("");
-    const r = await post("/api/auth/otp/request", { name, email });
+    const r = await post("/api/auth/otp/request", { email });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return setNote(j.error || "Could not send the code.");
     setSent(true);

@@ -9,16 +9,22 @@ const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET!);
 export type SessionUser = { id: number; email: string; name?: string };
 
 /** The account for a verified email: created on first sign-in with the name given, found afterwards. */
-export async function findOrCreateUser(email: string, name: string): Promise<SessionUser> {
+export async function userExists(email: string): Promise<boolean> {
+  await ensureSchema();
+  const [u] = await sql`select 1 from users where email = ${email}`;
+  return !!u;
+}
+
+export async function findOrCreateUser(email: string, name?: string): Promise<SessionUser> {
   await ensureSchema();
   const [existing] = await sql<{ id: number; email: string; name: string | null }[]>`
     select id, email, name from users where email = ${email}`;
   if (existing) {
-    if (!existing.name) await sql`update users set name = ${name} where id = ${existing.id}`;
+    if (!existing.name && name) await sql`update users set name = ${name} where id = ${existing.id}`;
     return { id: existing.id, email: existing.email, name: existing.name || name };
   }
   const [u] = await sql<{ id: number; email: string }[]>`
-    insert into users (email, name) values (${email}, ${name})
+    insert into users (email, name) values (${email}, ${name ?? null})
     on conflict (email) do update set email = excluded.email
     returning id, email`;
   await seedDefaultApps(u.id);

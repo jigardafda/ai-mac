@@ -37,10 +37,12 @@ function hashCode(email: string, code: string) {
 }
 
 /** On success, `challenge` goes to the requesting browser as a cookie; only that browser can use the code. */
-export type IssueResult = { ok: true; challenge: string } | { ok: false; status: number; error: string };
+export type IssueResult = { ok: true; challenge: string; isNew: boolean } | { ok: false; status: number; error: string };
 
-export async function issueCode(email: string, name: string, ip: string): Promise<IssueResult> {
+export async function issueCode(email: string, ip: string): Promise<IssueResult> {
   await ensureSchema();
+  const [account] = await sql<{ name: string | null }[]>`select name from users where email = ${email}`;
+  const name = account?.name ?? "";
   const [lim] = await sql<{ recent: number; last_secs: number | null; by_ip: number }[]>`
     select
       count(*) filter (where email = ${email} and created_at > now() - interval '1 hour')::int as recent,
@@ -62,7 +64,7 @@ export async function issueCode(email: string, name: string, ip: string): Promis
     console.error("Could not send the sign-in email:", e instanceof Error ? e.message : e);
     return { ok: false, status: 502, error: "Could not send the email. Try again in a moment." };
   }
-  return { ok: true, challenge };
+  return { ok: true, challenge, isNew: !account };
 }
 
 export type VerifyResult = { ok: true; name: string } | { ok: false; error: string };
@@ -99,12 +101,13 @@ async function sendCodeEmail(to: string, name: string, code: string) {
     return;
   }
   const safe = escapeHtml(name);
+  const hi = name ? `Hi ${safe},` : "Hi,";
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;color:#1d1d1f">
-<p style="font-size:15px;margin:0 0 16px">Hi ${safe},</p>
+<p style="font-size:15px;margin:0 0 16px">${hi}</p>
 <p style="font-size:15px;margin:0 0 16px">Your AI Mac sign-in code is:</p>
 <p style="font-size:32px;letter-spacing:6px;font-weight:600;margin:0 0 16px">${code}</p>
 <p style="font-size:13px;color:#6e6e73;margin:0">It expires in ${TTL_MINUTES} minutes and works once. If you did not ask for it, ignore this email; nobody can sign in without the code.</p></div>`;
-  const text = `Hi ${name},\n\nYour AI Mac sign-in code is ${code}.\nIt expires in ${TTL_MINUTES} minutes and works once. If you did not ask for it, ignore this email.\n`;
+  const text = `${name ? `Hi ${name},` : "Hi,"}\n\nYour AI Mac sign-in code is ${code}.\nIt expires in ${TTL_MINUTES} minutes and works once. If you did not ask for it, ignore this email.\n`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },

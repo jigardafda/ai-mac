@@ -11,7 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `docker-compose.yml` for local Postgres and a complete `.env.example`.
 
 ### Changed
-- Sign in with a name and an emailed six digit code instead of a password. Codes are single use, expire after 10 minutes, are stored only as an HMAC and are bound to the requesting browser.
+- Sign in with an emailed six digit code instead of a password: enter your email, then the code; a new address is also asked for a first name, prefilled from the email. Codes are single use, expire after 10 minutes, are stored only as an HMAC and are bound to the requesting browser.
 - Dependencies and Node updated to the latest (Node 24+, Next 16, React 19, TypeScript 6); production dependencies report no known vulnerabilities.
 - Security headers on every response and a `Secure` session cookie in production.
 - The OpenAI client is created on first use, so the desktop and every shipped app work without an API key.

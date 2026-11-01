@@ -33,7 +33,7 @@
 
 ## What is it?
 
-Sign in with your name and email (a six digit code arrives by email, no password) and you get a Mac-style desktop with a dock, a menu bar and a set of icons: Notes, Calculator, Reminders, Calendar, Weather, Freeform, Music and two arcade games. Every user has their own desktop, their own copy of every app and their own data.
+Sign in with just your email (a six digit code arrives by email, no password; new here? add your first name) and you get a Mac-style desktop with a dock, a menu bar and a set of icons: Notes, Calculator, Reminders, Calendar, Weather, Freeform, Music and two arcade games. Every user has their own desktop, their own copy of every app and their own data.
 
 - **Open an app that doesn't exist yet and a model writes it in front of you**, streaming the code into the window. It is checked, stored, and from then on loads from your own cache in milliseconds.
 - **"New app" turns a sentence into a new icon.** *"A habit tracker with streaks"* becomes an app on your desktop with a generated icon.
@@ -46,7 +46,7 @@ Sign in with your name and email (a six digit code arrives by email, no password
 <table>
   <tr>
     <td width="50%"><img src="docs/images/desktop.jpg" alt="The desktop with dock, menu bar and icons"><br><sub><b>The desktop</b> — menu bar, dock with magnification, icons on the right.</sub></td>
-    <td width="50%"><img src="docs/images/login.jpg" alt="The sign-in card asking for a name and email"><br><sub><b>Sign in</b> — name and email, then a code by email. No passwords.</sub></td>
+    <td width="50%"><img src="docs/images/login.jpg" alt="The sign-in card asking for an email"><br><sub><b>Sign in</b> — your email, then a code. New here? Add your first name, prefilled from the email.</sub></td>
   </tr>
   <tr>
     <td><img src="docs/images/bomberman.jpg" alt="Bomberman mid-game with a bomb exploding"><br><sub><b>Bomberman</b> — a playable arcade game, written by the model and reviewed.</sub></td>
@@ -76,7 +76,7 @@ npm install
 npm run dev                     # http://localhost:3000
 ```
 
-Sign in with any name and email. In development the six digit code is **printed in the terminal** instead of being emailed, so you need no mail provider. The schema creates itself on first use.
+Sign in with any email. In development the six digit code is **printed in the terminal** instead of being emailed, so you need no mail provider. The schema creates itself on first use.
 
 To generate new apps, add `OPENAI_API_KEY` to `.env.local`.
 
@@ -204,7 +204,7 @@ Generated code is untrusted code, so the design assumes the model can write some
 - **A narrow door.** The only way out is the `window.aic` bridge over `postMessage`. The host answers each request through the normal authenticated API, scoped to the signed-in user and that one app.
 - **A validator and a runtime check** catch the obvious escapes and the obvious breakage before an app is stored.
 - **The built-in browser is a proxy** (`app/api/browse/route.ts`). It refuses non-http(s) addresses, addresses with credentials, `localhost`, `.local` and `.internal` names, and any host that resolves to a private or link-local address. It caps responses at 4 MB, strips frame-blocking headers, and runs the page in its own sandboxed frame with an opaque origin so page scripts cannot reach your session.
-- **Sign-in is an emailed code** (`lib/otp.ts`). The code is six digits from a CSPRNG, stored only as an HMAC, valid for 10 minutes, single use, and locked after 5 wrong tries (counted atomically, so parallel guesses cannot beat the limit). Requests are limited to one per 30 seconds and 5 per hour per address, and 20 per hour per IP. The response never says whether an address already has a desktop, and names are stripped of control characters and angle brackets and HTML-escaped in the email.
+- **Sign-in is an emailed code** (`lib/otp.ts`). The code is six digits from a CSPRNG, stored only as an HMAC, valid for 10 minutes, single use, and locked after 5 wrong tries (counted atomically, so parallel guesses cannot beat the limit). Requests are limited to one per 30 seconds and 5 per hour per address, and 20 per hour per IP. Each code is bound to the browser that requested it, so a stranger who knows only your address cannot use up your tries. The sign-in page asks only for an email and then, for a new address, a first name, so the request endpoint does say whether an address already has a desktop; the rate limits above stop that being a free lookup. Names are stripped of control characters and angle brackets and HTML-escaped in the email.
 - **Hardened responses.** Every response carries HSTS, `nosniff`, `X-Frame-Options: SAMEORIGIN` and a `frame-ancestors 'self'` policy, a strict referrer policy and a locked-down permissions policy.
 - **Secrets stay server-side.** The OpenAI key is only ever read by the server. Apps get a short answer from `aic.ask`, never a key.
 
@@ -236,7 +236,7 @@ To check fidelity, screenshots of each app are taken with Playwright and reviewe
 
 ```
 app/              pages and API routes
-  login/          name and email, then the emailed code
+  login/          email, then the emailed code (and a first name for new addresses)
   desktop/        the desktop page
   api/auth/       otp/request, otp/verify, logout
   api/apps/       list, create; per app: get or build, improve, data, ask, versions
