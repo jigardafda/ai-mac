@@ -6,6 +6,7 @@ import { getJob, startJob, streamJob } from "@/lib/jobs";
 import { CODE_MODEL } from "@/lib/openai";
 import { wrapApp } from "@/lib/sandbox";
 import { DEFAULT_APPS } from "@/lib/catalog";
+import { loadTemplate } from "@/lib/templates";
 
 type Ctx = { params: Promise<{ slug: string }> };
 
@@ -25,13 +26,24 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 /** Builds (or rebuilds) the app as a server-side job and streams it. A second
  *  caller while it runs attaches to the same job instead of starting another. */
-export async function POST(_req: Request, { params }: Ctx) {
+export async function POST(req: Request, { params }: Ctx) {
   const user = await requireUser();
   const { slug } = await params;
   const app = await getApp(user.id, slug);
   if (!app) return NextResponse.json({ error: "No such app" }, { status: 404 });
   const running = getJob(app.id);
   if (running && !running.done) return streamJob(running);
+  // First open of an app that ships with a tuned build: install it at once.
+  const fresh = new URL(req.url).searchParams.get("fresh") === "1";
+  if (!fresh && !app.current_version_id) {
+    const tpl = await loadTemplate(slug);
+    if (tpl) {
+      const version = await saveVersion(app.id, tpl, "installed from template", "template");
+      const enc = new TextEncoder();
+      const lines = [{ type: "meta", started: Date.now(), kind: "build" }, { type: "status", text: `Installing ${app.name}` }, { type: "done", version }];
+      return new Response(enc.encode(lines.map((l) => JSON.stringify(l)).join("\n") + "\n"), { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store" } });
+    }
+  }
   // Default apps always build from the current catalog brief, so an older desktop
   // gets the newest version of the brief when it rebuilds.
   const brief = DEFAULT_APPS.find((a) => a.slug === slug) ?? app;

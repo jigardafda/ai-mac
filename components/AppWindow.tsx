@@ -91,7 +91,8 @@ export function AppWindow({ win, active, menuHeight, onFocus, onClose, onMinimis
     const fail = (text: string) => { if (!alive.current) return; if (inPlace) { setPending(null); onNotify(`Update failed: ${text}`); } else setPhase({ kind: "error", text }); };
     show(p);
     try {
-      const url = kind === "build" ? `/api/apps/${win.slug}` : `/api/apps/${win.slug}/improve`;
+      // A rebuild asked for by the user always writes fresh code, even when a shipped template exists.
+      const url = kind === "build" ? `/api/apps/${win.slug}${inPlace ? "?fresh=1" : ""}` : `/api/apps/${win.slug}/improve`;
       const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: kind === "improve" ? JSON.stringify({ request: req }) : undefined, signal: ac.signal });
       if (!r.ok || !r.body) return fail((await r.json().catch(() => ({}))).error || `Build failed (${r.status})`);
       const reader = r.body.getReader();

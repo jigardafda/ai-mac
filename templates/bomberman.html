@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Retro Bomber</title>
+<style>
+  html,body{height:100%;margin:0;overflow:hidden;background:#000;color:#fcfcfc;font:13px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif}
+  *{box-sizing:border-box}
+  .app{height:100%;width:100%;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+  canvas{display:block;width:496px;height:240px;background:#000;image-rendering:pixelated;image-rendering:crisp-edges}
+</style>
+</head>
+<body>
+<div class="app">
+  <canvas id="game" width="496" height="240"></canvas>
+</div>
+<script>
+(() => {
+'use strict';
+const aic=window.aic||{storage:{async get(){return null},async set(){}},setTitle(){},setTitlebar(){},notify(){}};
+aic.setTitle?.('Retro Bomber'); aic.setTitlebar?.('#000000','#ffffff');
+
+const cvs=document.getElementById('game'),ctx=cvs.getContext('2d');
+ctx.imageSmoothingEnabled=false;
+const W=496,H=240,T=16,HUD=32,MAPW=31,MAPH=13,VIEWW=496,VIEWX=0;
+const EMPTY=0,CONC=1,BRICK=2;
+const C={black:'#000000',white:'#fcfcfc',lgrey:'#bcbcbc',mgrey:'#7c7c7c',dgrey:'#404040',green:'#00a800',dgreen:'#007800',brick:'#f8a060',brickDark:'#c84c0c',mortar:'#fcd8a8',orange:'#f87800',yellow:'#f8d878',pink:'#f878f8',lblue:'#3cbcfc',blue:'#0058f8',red:'#f83800',sky:'#a4e4fc',tex:'#a4a4a4'};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const now=()=>performance.now()/1000;
+const randSeed=n=>{let s=n>>>0;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296)};
+
+let state='loading',keys={},last=now(),camera=0,anim=0,paused=false,muted=false,audio=null,saveTimer=0,titleSel=0;
+let highScore=0,savedStage=1,game;
+
+function fitCanvas(){
+  const parent=cvs.parentElement;
+  const rect=parent.getBoundingClientRect();
+  const w=Math.max(1,rect.width||window.innerWidth||W);
+  cvs.style.width=w+'px';
+  cvs.style.height=(w*H/W)+'px';
+}
+window.addEventListener('resize',fitCanvas);
+if(window.ResizeObserver)new ResizeObserver(fitCanvas).observe(cvs.parentElement);
+fitCanvas();
+
+const GLYPHS={
+' ':['00000','00000','00000','00000','00000','00000','00000'],
+'A':['01110','10001','10001','11111','10001','10001','10001'],
+'B':['11110','10001','10001','11110','10001','10001','11110'],
+'C':['01111','10000','10000','10000','10000','10000','01111'],
+'D':['11110','10001','10001','10001','10001','10001','11110'],
+'E':['11111','10000','10000','11110','10000','10000','11111'],
+'F':['11111','10000','10000','11110','10000','10000','10000'],
+'G':['01111','10000','10000','10011','10001','10001','01111'],
+'H':['10001','10001','10001','11111','10001','10001','10001'],
+'I':['11111','00100','00100','00100','00100','00100','11111'],
+'J':['00111','00010','00010','00010','00010','10010','01100'],
+'K':['10001','10010','10100','11000','10100','10010','10001'],
+'L':['10000','10000','10000','10000','10000','10000','11111'],
+'M':['10001','11011','10101','10101','10001','10001','10001'],
+'N':['10001','11001','10101','10011','10001','10001','10001'],
+'O':['01110','10001','10001','10001','10001','10001','01110'],
+'P':['11110','10001','10001','11110','10000','10000','10000'],
+'Q':['01110','10001','10001','10001','10101','10010','01101'],
+'R':['11110','10001','10001','11110','10100','10010','10001'],
+'S':['01111','10000','10000','01110','00001','00001','11110'],
+'T':['11111','00100','00100','00100','00100','00100','00100'],
+'U':['10001','10001','10001','10001','10001','10001','01110'],
+'V':['10001','10001','10001','10001','10001','01010','00100'],
+'W':['10001','10001','10001','10101','10101','10101','01010'],
+'X':['10001','10001','01010','00100','01010','10001','10001'],
+'Y':['10001','10001','01010','00100','00100','00100','00100'],
+'Z':['11111','00001','00010','00100','01000','10000','11111'],
+'0':['01110','10001','10001','10001','10001','10001','01110'],
+'1':['00100','01100','00100','00100','00100','00100','01110'],
+'2':['01110','10001','00001','00010','00100','01000','11111'],
+'3':['11110','00001','00001','01110','00001','00001','11110'],
+'4':['00010','00110','01010','10010','11111','00010','00010'],
+'5':['11111','10000','10000','11110','00001','00001','11110'],
+'6':['01110','10000','10000','11110','10001','10001','01110'],
+'7':['11111','00001','00010','00100','01000','01000','01000'],
+'8':['01110','10001','10001','01110','10001','10001','01110'],
+'9':['01110','10001','10001','01111','00001','00001','01110']
+};
+const glyphOrder='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ';
+const fontSheets={};
+function makeFontSheet(color){
+  const cn=document.createElement('canvas'); cn.width=glyphOrder.length*8; cn.height=8;
+  const c=cn.getContext('2d'); c.imageSmoothingEnabled=false; c.fillStyle=color;
+  for(let gi=0;gi<glyphOrder.length;gi++){
+    const g=GLYPHS[glyphOrder[gi]];
+    for(let y=0;y<7;y++)for(let x=0;x<5;x++)if(g[y][x]==='1')c.fillRect(gi*8+x+1,y,1,1);
+  }
+  return cn;
+}
+function textWidth(s,scale=1){return s.length*8*scale}
+function drawText(s,x,y,opt={}){
+  s=String(s).toUpperCase().replace(/[^A-Z0-9 ]/g,' ');
+  const scale=opt.scale||1,align=opt.align||'left',color=opt.color||C.white,shadow=opt.shadow;
+  let xx=x; const w=textWidth(s,scale); if(align==='center')xx-=Math.floor(w/2); else if(align==='right')xx-=w;
+  if(shadow)drawText(s,xx+scale,y+scale,{scale,color:shadow,align:'left'});
+  const sheet=fontSheets[color]||(fontSheets[color]=makeFontSheet(color));
+  for(let i=0;i<s.length;i++){
+    const idx=glyphOrder.indexOf(s[i]); if(idx<0)continue;
+    ctx.drawImage(sheet,idx*8,0,8,8,xx+i*8*scale,y,8*scale,8*scale);
+  }
+}
+makeFontSheet(C.white);
+
+const ENEMY={
+  ballom:{name:'Ballom',speed:28,pts:100,chase:0,brickPass:false,bounce:false},
+  onil:{name:'Onil',speed:40,pts:200,chase:.28,brickPass:false,bounce:false},
+  dahl:{name:'Dahl',speed:38,pts:400,chase:.08,brickPass:false,bounce:true},
+  minvo:{name:'Minvo',speed:54,pts:800,chase:.16,brickPass:false,bounce:false},
+  doll:{name:'Doll',speed:52,pts:1000,chase:.22,brickPass:false,bounce:true},
+  ovapi:{name:'Ovapi',speed:34,pts:2000,chase:.14,brickPass:true,bounce:false},
+  pass:{name:'Pass',speed:64,pts:4000,chase:.55,brickPass:false,bounce:false},
+  pontan:{name:'Pontan',speed:70,pts:8000,chase:.7,brickPass:true,bounce:false}
+};
+const POWERS=['Fire','Bombs','Detonator','Speed','Bombs','Bombs','Fire','Detonator','Wall Pass','Fire','Bombs','Speed','Flame Pass','Bombs','Detonator','Bomb Pass','Fire','Speed','Mystery','Bombs','Fire','Detonator','Wall Pass','Bombs','Speed','Flame Pass','Fire','Bomb Pass','Mystery','Detonator','Fire','Bombs','Speed','Wall Pass','Bombs','Flame Pass','Fire','Detonator','Bomb Pass','Mystery','Fire','Bombs','Speed','Wall Pass','Flame Pass','Bombs','Detonator','Mystery','Bomb Pass','Fire'];
+
+function roster(stage){
+  const exact=[{ballom:6},{ballom:3,onil:3},{ballom:2,onil:2,dahl:2},{ballom:1,onil:1,dahl:2,minvo:2},{onil:4,dahl:3},{onil:2,dahl:3,minvo:2},{onil:2,dahl:3,minvo:1,doll:1},{onil:1,dahl:2,minvo:4}];
+  if(stage<=8)return exact[stage-1];
+  if(stage===50)return {pontan:8};
+  const p=[{onil:2,dahl:2,minvo:2,doll:1},{dahl:3,minvo:2,doll:2},{minvo:3,doll:2,ovapi:1},{dahl:2,doll:3,ovapi:2},{minvo:2,doll:2,ovapi:2,pass:1},{doll:3,ovapi:2,pass:2},{ovapi:3,pass:2,pontan:1},{doll:2,ovapi:2,pass:2,pontan:2}][(stage-9)%8];
+  const out={...p}; if(stage>28)out.pontan=(out.pontan||0)+1; if(stage>36){out.pass=(out.pass||0)+1;out.ballom=0} if(stage>44){out.pontan=(out.pontan||0)+1;delete out.onil;delete out.dahl} return out;
+}
+function newGame(stage=1,lives=2,score=0){
+  game={stage:clamp(stage,1,50),lives,score,time:200,board:[],bombs:[],flames:[],crumbles:[],enemies:[],door:null,power:null,opened:false,bonus:false,timedOut:false,nextSwarm:0,bonusSpawn:0,
+    player:{x:24,y:HUD+24,dir:'D',alive:true,death:0,speed:64,fire:1,maxBombs:1,wallPass:false,bombPass:false,flamePass:false,detonator:false,inv:0,lastDrop:-9}};
+  buildStage(); state='card'; anim=0; paused=false;
+}
+function buildStage(){
+  const st=game.stage,r=randSeed(0xB0B0+st*977+game.lives*17);
+  game.board=[];game.bombs=[];game.flames=[];game.crumbles=[];game.enemies=[];game.opened=false;game.timedOut=false;game.nextSwarm=0;game.bonusSpawn=0;game.nextPenalty=0;
+  game.bonus=st%5===0; game.time=game.bonus?60:200;
+  for(let y=0;y<MAPH;y++){game.board[y]=[];for(let x=0;x<MAPW;x++)game.board[y][x]=(x===0||y===0||x===MAPW-1||y===MAPH-1||(x%2===0&&y%2===0))?CONC:EMPTY}
+  const clear=new Set(['1,1','2,1','1,2']); let bricks=[];
+  for(let y=1;y<MAPH-1;y++)for(let x=1;x<MAPW-1;x++){
+    if(game.board[y][x]!==EMPTY||clear.has(`${x},${y}`))continue;
+    if(r()<.34){game.board[y][x]=BRICK;bricks.push({x,y})}
+  }
+  while(bricks.length<3){let x=3+Math.floor(r()*25),y=1+Math.floor(r()*11); if(game.board[y][x]===EMPTY&&!clear.has(`${x},${y}`)){game.board[y][x]=BRICK;bricks.push({x,y})}}
+  const d=bricks[Math.floor(r()*bricks.length)]; game.door={x:d.x,y:d.y,revealed:false,open:false};
+  let p; do{p=bricks[Math.floor(r()*bricks.length)]}while(p===d); game.power={x:p.x,y:p.y,type:POWERS[(st-1)%POWERS.length],revealed:false,taken:false};
+  const rs=roster(st); for(const type of Object.keys(rs))for(let i=0;i<rs[type];i++)spawnEnemy(type,randomFreeFar(r),r);
+  Object.assign(game.player,{x:24,y:HUD+24,alive:true,dir:'D',inv:game.bonus?999:2.2,lastDrop:-9}); camera=0;
+}
+function randomFreeFar(r=Math.random){for(let k=0;k<500;k++){const x=1+Math.floor(r()*(MAPW-2)),y=1+Math.floor(r()*(MAPH-2));if(game.board[y][x]===EMPTY&&Math.abs(x-1)+Math.abs(y-1)>10)return{x,y}}return{x:MAPW-2,y:MAPH-2}}
+function spawnEnemy(type,pos=randomFreeFar(),r=Math.random){const def=ENEMY[type]||ENEMY.ballom,level=Math.min(1+(game.stage-1)*.012,1.45);game.enemies.push({x:pos.x*T+8,y:HUD+pos.y*T+8,dir:pickDir(r),kind:type,def,speed:def.speed*level,dead:false,wob:r()*10})}
+function pickDir(r=Math.random){return['L','R','U','D'][Math.floor(r()*4)]}
+function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{try{await aic.storage.set('retroBomberSave',{highScore,savedStage})}catch(e){}},250)}
+async function loadSave(){try{const s=await aic.storage.get('retroBomberSave');if(s){highScore=s.highScore||0;savedStage=s.savedStage||1}}catch(e){}state='title'}
+
+function startAudio(){if(audio||muted)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ac=new AC(),master=ac.createGain();master.gain.value=.045;master.connect(ac.destination);audio={ac,master,next:0,step:0}}
+function beep(freq=440,dur=.08,type='square',vol=.08){if(muted)return;startAudio();if(!audio)return;const t=audio.ac.currentTime,o=audio.ac.createOscillator(),g=audio.ac.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(audio.master);o.start(t);o.stop(t+dur+.02)}
+function musicTick(){if(!audio||muted||state==='title'||paused)return;const ac=audio.ac,t=ac.currentTime;if(t<audio.next)return;const notes=[196,247,294,247,330,294,247,196,220,262,330,262,392,330,262,220];const o=ac.createOscillator(),g=ac.createGain(),n=notes[audio.step++%notes.length];o.type='square';o.frequency.value=n;g.gain.value=.035;g.gain.exponentialRampToValueAtTime(.001,t+.105);o.connect(g);g.connect(audio.master);o.start(t);o.stop(t+.12);audio.next=t+.15}
+
+function solidTile(x,y,who='player'){
+  if(x<0||y<0||x>=MAPW||y>=MAPH)return true;
+  const b=game.board[y][x],wp=(who==='player'&&game.player.wallPass)||(typeof who==='object'&&who.def.brickPass);
+  if(b===CONC)return true; if(b===BRICK&&!wp)return true;
+  const bp=(who==='player'&&game.player.bombPass); if(bp)return false;
+  return game.bombs.some(bm=>bm.x===x&&bm.y===y&&!(who==='player'&&bm.leave));
+}
+function canStand(px,py,who='player'){const r=5.4,lx=Math.floor((px-r)/T),rx=Math.floor((px+r)/T),ty=Math.floor((py-HUD-r)/T),by=Math.floor((py-HUD+r)/T);for(let y=ty;y<=by;y++)for(let x=lx;x<=rx;x++)if(solidTile(x,y,who))return false;return true}
+function tileOf(px,py){return{x:Math.floor(px/T),y:Math.floor((py-HUD)/T)}}
+function flameAtTile(x,y){return game.flames.some(f=>f.x===x&&f.y===y)}
+
+function update(dt){
+  anim+=dt; musicTick();
+  if(state==='title'||state==='gameover')return;
+  if(state==='card'){if(anim>2){state='playing';anim=0}return}
+  if(paused||state!=='playing')return;
+  const p=game.player;if(p.inv>0&&!game.bonus)p.inv-=dt;
+  game.time-=dt;
+  if(game.bonus&&game.time<=0){game.time=0;clearStage();return}
+  if(!game.bonus&&game.time<=0&&!game.timedOut){game.time=0;game.timedOut=true;game.nextSwarm=anim;beep(80,.45,'sawtooth',.13)}
+  if(game.timedOut&&anim>=game.nextSwarm){game.nextSwarm=anim+1.1;for(let i=0;i<2;i++)spawnEnemy('pontan',randomFreeFar())}
+  if(game.bonus&&anim>=game.bonusSpawn){game.bonusSpawn=anim+1.65;spawnEnemy('ballom',randomFreeFar())}
+  movePlayer(dt); updateBombs(dt); updateFlames(dt); updateCrumbles(dt); updateEnemies(dt);
+  game.opened=game.enemies.every(e=>e.dead); if(game.door)game.door.open=game.opened&&game.door.revealed;
+  if(p.alive){
+    const pt=tileOf(p.x,p.y);
+    if(!p.flamePass&&flameAtTile(pt.x,pt.y)&&p.inv<=0)killPlayer();
+    if(game.enemies.some(e=>!e.dead&&Math.hypot(e.x-p.x,e.y-p.y)<10)&&p.inv<=0)killPlayer();
+    if(game.power&&game.power.revealed&&!game.power.taken&&pt.x===game.power.x&&pt.y===game.power.y)takePower(game.power.type);
+    if(game.door&&game.door.open&&pt.x===game.door.x&&pt.y===game.door.y)clearStage();
+  }else if(anim-p.death>1.55)loseLife();
+  camera=0;
+}
+function movePlayer(dt){
+  const p=game.player;if(!p.alive)return;
+  let dir=null;if(keys.ArrowLeft)dir='L';else if(keys.ArrowRight)dir='R';else if(keys.ArrowUp)dir='U';else if(keys.ArrowDown)dir='D';
+  if(!dir)return;p.dir=dir;
+  let vx=0,vy=0;if(dir==='L')vx=-1;if(dir==='R')vx=1;if(dir==='U')vy=-1;if(dir==='D')vy=1;
+  const oldx=p.x,oldy=p.y,cx=Math.floor(p.x/T)*T+8,cy=HUD+Math.floor((p.y-HUD)/T)*T+8;
+  if(vx&&Math.abs(p.y-cy)<=4)p.y+=(cy-p.y)*Math.min(1,dt*14);
+  if(vy&&Math.abs(p.x-cx)<=4)p.x+=(cx-p.x)*Math.min(1,dt*14);
+  p.x+=vx*p.speed*dt;p.y+=vy*p.speed*dt;
+  if(!canStand(p.x,p.y,'player')){
+    p.x=oldx;p.y=oldy;
+    if(vx){const n=Math.sign(cy-p.y);if(Math.abs(cy-p.y)<=7&&canStand(oldx,oldy+n*p.speed*dt,'player'))p.y+=n*p.speed*dt}
+    if(vy){const n=Math.sign(cx-p.x);if(Math.abs(cx-p.x)<=7&&canStand(oldx+n*p.speed*dt,oldy,'player'))p.x+=n*p.speed*dt}
+  }
+  for(const b of game.bombs)if(b.leave){const t=tileOf(p.x,p.y);if(t.x!==b.x||t.y!==b.y)b.leave=false}
+}
+function dropOrDetonate(){
+  if(state==='title'){titleSel?continueGame():startGame();return}
+  if(state==='gameover'||state==='card'||paused||!game.player.alive)return;
+  startAudio(); const p=game.player;
+  if(p.detonator&&game.bombs.length&&now()-p.lastDrop>.25){explodeBomb(game.bombs[0]);beep(90,.18,'sawtooth',.12);return}
+  if(game.bombs.length>=p.maxBombs)return;
+  const t=tileOf(p.x,p.y); if(solidTile(t.x,t.y,'bomb')||game.bombs.some(b=>b.x===t.x&&b.y===t.y))return;
+  game.bombs.push({x:t.x,y:t.y,t:0,fuse:p.detonator?999:2.5,range:p.fire,leave:true,pulse:Math.random()*6}); p.lastDrop=now(); beep(160,.05,'square',.08);
+}
+function updateBombs(dt){for(const b of [...game.bombs]){b.t+=dt;if(!game.player.detonator&&b.t>=b.fuse)explodeBomb(b)}}
+function explodeBomb(b){
+  const i=game.bombs.indexOf(b);if(i<0)return;game.bombs.splice(i,1); addFlame(b.x,b.y,'C',false);
+  for(const [dx,dy,k] of [[1,0,'R'],[-1,0,'L'],[0,1,'D'],[0,-1,'U']])for(let n=1;n<=b.range;n++){
+    const x=b.x+dx*n,y=b.y+dy*n;if(x<0||y<0||x>=MAPW||y>=MAPH)break;
+    if(game.board[y][x]===CONC)break;
+    const hitBrick=game.board[y][x]===BRICK; addFlame(x,y,k,n===b.range||hitBrick);
+    const other=game.bombs.find(o=>o.x===x&&o.y===y);if(other)setTimeout(()=>explodeBomb(other),0);
+    if(game.door&&game.door.revealed&&game.door.x===x&&game.door.y===y)spawnPenalty();
+    if(game.power&&game.power.revealed&&!game.power.taken&&game.power.x===x&&game.power.y===y){game.power.taken=true;spawnPenalty()}
+    if(hitBrick){game.board[y][x]=EMPTY;game.crumbles.push({x,y,t:0});break}
+  }
+  beep(70,.22,'sawtooth',.13);
+}
+function addFlame(x,y,k,tip){game.flames.push({x,y,k,tip,t:0,d:.5})}
+function updateCrumbles(dt){for(let i=game.crumbles.length-1;i>=0;i--){const c=game.crumbles[i];c.t+=dt;if(c.t>.42){revealHidden(c.x,c.y);game.crumbles.splice(i,1)}}}
+function revealHidden(x,y){if(game.door&&game.door.x===x&&game.door.y===y)game.door.revealed=true;if(game.power&&game.power.x===x&&game.power.y===y)game.power.revealed=true}
+function updateFlames(dt){
+  for(let i=game.flames.length-1;i>=0;i--){const f=game.flames[i];f.t+=dt;if(f.t>f.d)game.flames.splice(i,1)}
+  for(const e of game.enemies)if(!e.dead&&flameAtTile(Math.floor(e.x/T),Math.floor((e.y-HUD)/T))){e.dead=true;game.score+=e.def.pts;highScore=Math.max(highScore,game.score);beep(520,.08,'square',.07);saveSoon()}
+}
+function updateEnemies(dt){
+  const p=game.player;
+  for(const e of game.enemies){if(e.dead)continue;
+    const cx=Math.floor(e.x/T)*T+8,cy=HUD+Math.floor((e.y-HUD)/T)*T+8,centered=Math.abs(e.x-cx)<1.2&&Math.abs(e.y-cy)<1.2;
+    if(centered){e.x=cx;e.y=cy;let opts=dirsAvailable(e.x,e.y,e),rev={L:'R',R:'L',U:'D',D:'U'}[e.dir];
+      if(!opts.includes(e.dir)||opts.length>2||Math.random()<.16){let choices=opts.filter(d=>d!==rev);if(!choices.length)choices=opts;if(Math.random()<e.def.chase){const want=Math.abs(p.x-e.x)>Math.abs(p.y-e.y)?(p.x<e.x?'L':'R'):(p.y<e.y?'U':'D');e.dir=choices.includes(want)?want:(choices[Math.floor(Math.random()*choices.length)]||rev||'L')}else e.dir=choices[Math.floor(Math.random()*choices.length)]||rev||'L'}
+    }
+    let vx=0,vy=0;if(e.dir==='L')vx=-1;if(e.dir==='R')vx=1;if(e.dir==='U')vy=-1;if(e.dir==='D')vy=1;
+    const ox=e.x,oy=e.y;e.x+=vx*e.speed*dt;e.y+=vy*e.speed*dt;if(!canStand(e.x,e.y,e)){e.x=ox;e.y=oy;e.dir=pickDir()}
+  }
+}
+function dirsAvailable(px,py,who){const tx=Math.floor(px/T),ty=Math.floor((py-HUD)/T),a=[];if(!solidTile(tx-1,ty,who))a.push('L');if(!solidTile(tx+1,ty,who))a.push('R');if(!solidTile(tx,ty-1,who))a.push('U');if(!solidTile(tx,ty+1,who))a.push('D');return a}
+function takePower(type){const p=game.player;game.power.taken=true;beep(880,.12,'square',.08);if(type==='Fire')p.fire=Math.min(8,p.fire+1);if(type==='Bombs')p.maxBombs=Math.min(8,p.maxBombs+1);if(type==='Speed')p.speed=Math.min(96,p.speed+10);if(type==='Wall Pass')p.wallPass=true;if(type==='Detonator')p.detonator=true;if(type==='Bomb Pass')p.bombPass=true;if(type==='Flame Pass')p.flamePass=true;if(type==='Mystery')p.inv=20}
+function spawnPenalty(){if(game.nextPenalty&&game.nextPenalty>anim)return;game.nextPenalty=anim+1;for(let i=0;i<4;i++)spawnEnemy('ballom',randomFreeFar());beep(110,.18,'triangle',.12)}
+function killPlayer(){if(game.bonus)return;const p=game.player;if(!p.alive||p.inv>0)return;p.alive=false;p.death=anim;beep(130,.5,'sawtooth',.12)}
+function loseLife(){game.lives--;if(game.lives<0){state='gameover';highScore=Math.max(highScore,game.score);saveSoon();return}const pow=powerSnapshot(),l=game.lives,s=game.score,st=game.stage;Object.assign(game,{stage:st,lives:l,score:s});buildStage();applyPowers(pow);state='card';anim=0}
+function powerSnapshot(){const p=game.player;return{speed:p.speed,fire:p.fire,maxBombs:p.maxBombs,wallPass:p.wallPass,bombPass:p.bombPass,flamePass:p.flamePass,detonator:p.detonator}}
+function applyPowers(s){Object.assign(game.player,s)}
+function clearStage(){beep(988,.14,'square',.1);beep(1318,.18,'square',.09);game.score+=Math.max(0,Math.floor(game.time))*10;highScore=Math.max(highScore,game.score);if(game.stage>=50){savedStage=1;state='title'}else{savedStage=game.stage+1;const l=game.lives,s=game.score,pow=powerSnapshot();game.stage++;buildStage();applyPowers(pow);game.lives=l;game.score=s;state='card';anim=0}saveSoon()}
+
+function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x|0,y|0,w|0,h|0)}
+const SPRPAL={'.':null,K:C.black,W:C.white,P:C.pink,B:C.blue,L:C.lblue,O:C.brick,D:C.brickDark,R:C.red,Y:C.yellow,M:C.mgrey,G:C.lgrey,N:C.orange};
+const spriteCache=new Map();
+function rows(a){return a.map(s=>(s+'................').slice(0,16))}
+function spriteCanvas(key,map){
+  if(spriteCache.has(key))return spriteCache.get(key);
+  const cn=document.createElement('canvas'); cn.width=16; cn.height=16;
+  const c=cn.getContext('2d'); c.imageSmoothingEnabled=false;
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){const col=SPRPAL[(map[y]||'')[x]]; if(col){c.fillStyle=col;c.fillRect(x,y,1,1)}}
+  spriteCache.set(key,cn); return cn;
+}
+function drawSpriteMap(key,map,x,y){ctx.drawImage(spriteCanvas(key,map),x|0,y|0)}
+
+function bomberMap(dir,fr){
+  const eye=dir==='U'?'.KWWWWWWWWWWWWK.':dir==='L'?'.KWWWKWWWWWWWWK.':dir==='R'?'.KWWWWWWWWKWWWK.':'.KWWKKWKWWWWWWK.';
+  let boots=['....BBB..BBB....','...BBBB..BBBB...','...BBBB..BBBB...'];
+  if(fr===1)boots=['...BBBB...BBB...','...BBBB..BBBB...','..BBBB....BBB...'];
+  if(fr===2)boots=['....BBB...BBBB..','...BBBB..BBBB...','...BBB....BBBB..'];
+  return rows([
+    '.......P........',
+    '.....KKKKKK.....',
+    '...KKWWWWWWKK...',
+    '..KWWWWWWWWWWK..',
+    '.KWWWWWWWWWWWWK.',
+    '.KWWWWWWWWWWWWK.',
+    eye,
+    '.KWWWWWWWWWWWWK.',
+    '..KWWWWWWWWWWK..',
+    '...KKWWWWWWKK...',
+    '.PP..WWWWWW..PP.',
+    '.PP..PPPPPP..PP.',
+    '.....WWWWWW.....',
+    boots[0],boots[1],boots[2]
+  ]);
+}
+function ballomMap(f){
+  return rows(f?[
+    '................','................','....DDDDDDDD....','..DDOOOOOOOODD..','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOKOOOOKOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOKKKOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DDDDDDDDDDDDDD.','................'
+  ]:[
+    '................','....DDDDDDDD....','..DDOOOOOOOODD..','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOKOOOOKOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOKKKOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DOOOOOOOOOOOOD.','.DDDDDDDDDDDDDD.','................'
+  ]);
+}
+function onilMap(){
+  return rows([
+    '.......K........','......KLK.......','.....KLLLK......','....KLLLLLK.....','...KLLLLLLLK....','..KLLLLLLLLLK...','.KLLLLLLLLLLLK..','.KLLWWWLLWWWLLK.','.KLLWKWLLWKWLLK.','.KLLLLLLLLLLLLK.','.KLLLLLLLLLLLLK.','..KLLLLLLLLLLK..','...KLLLLLLLLK...','....KLLLLLLK....','.....KKKKKK.....','................'
+  ]);
+}
+const enemyMaps={
+  dahl:rows(['................','...DDDDDDDDDD...','..DNNNNNNNNNND..','..DNNNNNNNNNND..','.DNNLLLLLLLLNND.','.DNNNNNNNNNNNND.','.DNNNKNNNNKNNND.','.DNNNKNNNNKNNND.','.DNNNNNNNNNNNND.','.DNNLLLLLLLLNND.','.DNNNNNNNNNNNND.','.DNNNNNNNNNNNND.','..DNNNNNNNNNND..','..DDDDDDDDDDDD..','................','................']),
+  minvo:rows(['................','.....NNNNNN.....','....NDDDDDDN....','..NNDDDDDDDDNN..','.NNNDDDDDDDDNNN.','...DRRRRRRRRD...','..DRRRRRRRRRRD..','..DRRKRRRRKRRD..','..DRRRRRRRRRRD..','..DRRRRRRRRRRD..','...DRRWWW.RRD...','...DRRRRRRRRD...','....DDRRRRDD....','...DD......DD...','................','................']),
+  doll:rows(['................','....LLLLLLLL....','...LWWWWWWWWL...','..LWWWWWWWWWWL..','..LWWWWWWWWWWL..','..LWWWWWWWWWWL..','..LWWKWWWWKWWL..','..LWWWWWWWWWWL..','.LLWWWWWWWWWWLL.','.LLLWWWWWWWWLLL.','.LLLLLLLLLLLLLL.','...LL..LL..LL...','...LL..LL..LL...','..LLL..LL..LLL..','................','................']),
+  ovapi:rows(['................','......PPPP......','.....PPPPPP.....','.....PPPPPP.....','......WWWW......','....MMMMMMMM....','...MMMMMMMMMM...','...MMKMMMMKMM...','...MMMMMMMMMM...','...MMMMMMMMMM...','...MMMMMMMMMM...','..MMMDDMMDDMMM..','..MMDD....DDMM..','...DD......DD...','................','................']),
+  pass:rows(['................','.....PPPPPP.....','....PPRRRRPP....','....RRRRRRRR....','...RRRRRRRRRR...','...RRKRRRRKRR...','...RRRRRRRRRR...','..RRRRDDDDRRRR..','..RRRRDDDDRRRR..','...RRRRRRRRRR...','...RRRRRRRRRR...','....RRRRRRRR....','...KK......KK...','..KK........KK..','................','................']),
+  pontan:rows(['................','................','.....YYYYYY.....','...YYNNNNNNYY...','..YNNNNNNNNNNY..','.YNNNNNNNNNNNNY.','.YNNNKNNNNKNNNY.','.YNNNNNNNNNNNNY.','.YNNNNNKKNNNNNY.','.YNNNNNNNNNNNNY.','..YNNNNNNNNNNY..','...YYNNNNNNYY...','.....YYYYYY.....','................','................','................'])
+};
+
+function draw(){
+  ctx.setTransform(1,0,0,1,0,0);ctx.imageSmoothingEnabled=false;px(0,0,W,H,C.black);
+  if(state==='title'||state==='loading'){drawTitle();return}
+  if(state==='gameover'){drawGameOver();return}
+  drawHud();
+  ctx.save();ctx.beginPath();ctx.rect(VIEWX,HUD,VIEWW,MAPH*T);ctx.clip();ctx.translate(VIEWX,0);
+  drawMap();drawItems();drawCrumbles();drawBombs();drawFlames();drawEnemies();drawPlayer();ctx.restore();
+  if(state==='card')drawCard();
+  if(paused&&state==='playing')drawPause();
+}
+function drawHud(){
+  px(0,0,W,HUD,C.lgrey);
+  drawText('TIME '+String(Math.ceil(game.time)).padStart(3,'0'),8,8,{shadow:C.black});
+  drawText(String(game.score).padStart(8,'0'),W/2,8,{align:'center',shadow:C.black});
+  drawText('LEFT '+String(Math.max(0,game.lives)),W-8,8,{align:'right',shadow:C.black});
+}
+function drawMap(){
+  px(0,HUD,MAPW*T,MAPH*T,C.green);
+  for(let y=0;y<MAPH;y++)for(let x=0;x<MAPW;x++){if(game.board[y][x]===CONC)drawConcrete(x,y);else if(game.board[y][x]===BRICK)drawBrick(x,y)}
+}
+function drawConcrete(x,y){
+  const X=x*T,Y=HUD+y*T;px(X,Y,T,T,C.lgrey);px(X,Y,T,2,C.white);px(X,Y,2,T,C.white);px(X+14,Y,2,T,C.mgrey);px(X,Y+14,T,2,C.mgrey);
+  for(let yy=4;yy<14;yy+=4)for(let xx=4;xx<14;xx+=4)px(X+xx,Y+yy,1,1,C.tex);
+}
+function brickRect(x,y,w,h){px(x,y,w,h,C.brick);px(x,y+h-1,w,1,C.brickDark)}
+function drawBrick(x,y){
+  const X=x*T,Y=HUD+y*T;px(X,Y,T,T,C.mortar);
+  brickRect(X,Y,7,7);brickRect(X+8,Y,8,7);
+  brickRect(X-4,Y+8,7,7);brickRect(X+4,Y+8,7,7);brickRect(X+12,Y+8,8,7);
+}
+function drawItems(){if(game.door&&game.door.revealed)drawDoor(game.door.x,game.door.y,game.door.open);if(game.power&&game.power.revealed&&!game.power.taken)drawPowerPanel(game.power.x,game.power.y,game.power.type)}
+function drawDoor(tx,ty,open){const x=tx*T,y=HUD+ty*T;px(x,y,16,16,C.mgrey);px(x+2,y+2,12,12,C.lgrey);px(x+4,y+5,8,9,C.dgrey);px(x+5,y+3,6,3,C.dgrey);if(open)px(x+6,y+7,4,7,C.black)}
+function drawPowerPanel(tx,ty,type){
+  const x=tx*T,y=HUD+ty*T,inv=Math.floor(anim*8)%2,fg=inv?C.white:C.blue,bg=inv?C.blue:C.white;
+  px(x,y,16,16,bg);px(x,y,16,1,fg);px(x,y,1,16,fg);px(x+15,y,1,16,fg);px(x,y+15,16,1,fg);drawPowerIcon(x,y,type,fg,inv?C.yellow:C.red);
+}
+function drawPowerIcon(x,y,type,a,b){
+  if(type==='Fire'){px(x+7,y+3,2,2,b);px(x+6,y+5,4,7,b);px(x+8,y+7,2,4,a);px(x+7,y+10,2,2,C.yellow)}
+  else if(type==='Bombs'){drawSmallBomb(x+4,y+5);px(x+11,y+4,2,2,C.yellow)}
+  else if(type==='Speed'){px(x+4,y+9,9,3,a);px(x+8,y+5,4,5,a);px(x+3,y+12,11,1,b)}
+  else if(type==='Wall Pass'){px(x+4,y+5,8,7,C.brick);px(x+4,y+7,8,1,C.mortar);px(x+8,y+5,1,2,C.mortar);px(x+6,y+8,1,3,C.mortar)}
+  else if(type==='Detonator'){px(x+4,y+8,8,4,a);px(x+6,y+5,4,3,b);px(x+7,y+4,2,1,b)}
+  else if(type==='Bomb Pass'){drawSmallBomb(x+3,y+6);px(x+10,y+5,1,7,a);px(x+11,y+6,2,1,a);px(x+11,y+10,2,1,a)}
+  else if(type==='Flame Pass'){px(x+4,y+5,4,7,b);px(x+10,y+5,1,7,a);px(x+11,y+6,2,1,a);px(x+11,y+10,2,1,a)}
+  else{drawText('?',x+4,y+4,{color:a})}
+}
+function drawSmallBomb(x,y){px(x+1,y+2,6,6,C.black);px(x+2,y+1,4,2,C.black);px(x+2,y+2,2,1,C.mgrey);px(x+6,y,1,2,C.yellow)}
+function drawCrumbles(){
+  for(const c of game.crumbles){
+    const x=c.x*T,y=HUD+c.y*T,f=Math.min(3,Math.floor(c.t/.105)),off=f*2;
+    if(f===0){drawBrick(c.x,c.y);continue}
+    px(x+1-off,y+2,5,3,C.brick);px(x+9+off,y+3,5,4,C.brick);px(x+4,y+8+off,4,4,C.brickDark);px(x+10,y+10+off,4,3,C.brick);px(x+2,y+12+off,5,2,C.mortar);
+  }
+}
+function drawBombs(){
+  for(const b of game.bombs){
+    const x=b.x*T,y=HUD+b.y*T,ph=Math.floor((anim+b.pulse)*4)%3,sz=ph===0?12:ph===1?13:14,ox=Math.floor((16-sz)/2),oy=Math.floor((16-sz)/2)+1;
+    px(x+ox+2,y+oy,sz-4,1,C.black);px(x+ox+1,y+oy+1,sz-2,2,C.black);px(x+ox,y+oy+3,sz,sz-5,C.black);px(x+ox+2,y+oy+sz-2,sz-4,1,C.black);
+    px(x+ox+3,y+oy+2,4,1,C.mgrey);px(x+ox+2,y+oy+3,2,2,C.mgrey);px(x+10,y+2,2,2,C.mgrey);px(x+12,y+1,1,2,C.yellow);px(x+13,y,1,1,C.yellow);
+  }
+}
+function drawFlames(){
+  for(const f of game.flames){
+    const x=f.x*T,y=HUD+f.y*T,fr=Math.min(3,Math.floor(f.t/f.d*4)),fade=fr===3?1:0;
+    if(f.k==='C'){drawFlameBurst(x,y,fade);continue}
+    const hor=f.k==='L'||f.k==='R';
+    if(hor)drawFlameArmH(x,y,f.k,f.tip,fade); else drawFlameArmV(x,y,f.k,f.tip,fade);
+  }
+}
+function drawFlameBurst(x,y,fade){
+  const o=fade?1:0;
+  px(x+4+o,y+2+o,8-o*2,1,C.orange);px(x+3+o,y+3+o,10-o*2,2,C.orange);px(x+2+o,y+5+o,12-o*2,6-o*2,C.orange);px(x+3+o,y+11-o,10-o*2,2,C.orange);px(x+4+o,y+13-o,8-o*2,1,C.orange);
+  px(x+5+o,y+4+o,6-o*2,1,C.yellow);px(x+4+o,y+5+o,8-o*2,6-o*2,C.yellow);px(x+5+o,y+11-o,6-o*2,1,C.yellow);
+  px(x+6,y+6,4,4,C.white);
+}
+function drawFlameArmH(x,y,k,tip,fade){
+  const o=fade?1:0; px(x+o,y+3+o,16-o*2,10-o*2,C.orange); px(x+o,y+5+o,16-o*2,6-o*2,C.yellow); px(x+o,y+6+o,16-o*2,4-o*2,C.white);
+  if(tip){if(k==='L'){px(x+0,y+3,2,2,C.black);px(x+0,y+11,2,2,C.black);px(x+0,y+5,1,6,C.orange)}else{px(x+14,y+3,2,2,C.black);px(x+14,y+11,2,2,C.black);px(x+15,y+5,1,6,C.orange)}}
+}
+function drawFlameArmV(x,y,k,tip,fade){
+  const o=fade?1:0; px(x+3+o,y+o,10-o*2,16-o*2,C.orange); px(x+5+o,y+o,6-o*2,16-o*2,C.yellow); px(x+6+o,y+o,4-o*2,16-o*2,C.white);
+  if(tip){if(k==='U'){px(x+3,y+0,2,2,C.black);px(x+11,y+0,2,2,C.black);px(x+5,y+0,6,1,C.orange)}else{px(x+3,y+14,2,2,C.black);px(x+11,y+14,2,2,C.black);px(x+5,y+15,6,1,C.orange)}}
+}
+function drawPlayer(){
+  const p=game.player;let x=Math.round(p.x-8),y=Math.round(p.y-8);
+  if(!p.alive){const df=Math.min(5,Math.floor((anim-p.death)/1.55*6));if(df<4)drawBomber(x,y,['L','D','R','U'][df],0);else drawPuff(x,y,df);return}
+  if(p.inv>0&&!game.bonus&&Math.floor(anim*12)%2)return;
+  drawBomber(x,y,p.dir,Math.floor(anim*8)%3);
+}
+function drawBomber(x,y,dir,fr){drawSpriteMap('bomber-'+dir+'-'+fr,bomberMap(dir,fr),x,y)}
+function drawPuff(x,y,df){const s=df===4?2:1;px(x+5,y+6,6*s,4,C.white);px(x+7,y+4,3*s,2,C.white);px(x+4,y+10,4*s,2,C.lgrey)}
+function drawEnemies(){for(const e of game.enemies)if(!e.dead){const x=Math.round(e.x-8),y=Math.round(e.y-8),f=Math.floor(anim*7+e.wob)%4;drawEnemySprite(e.kind,x,y,f,e.def.bounce?Math.sin(anim*10+e.wob)>0:0)}}
+function drawEnemySprite(k,x,y,f,bob){
+  y+=bob?1:0;
+  if(k==='ballom')drawSpriteMap('ballom-'+(f%2),ballomMap(f%2),x,y);
+  else if(k==='onil')drawSpriteMap('onil-0',onilMap(),x,y);
+  else drawSpriteMap(k+'-0',enemyMaps[k]||enemyMaps.pontan,x,y);
+}
+const LOGO5={
+B:['11110','10001','11110','10001','11110'],
+O:['01110','10001','10001','10001','01110'],
+M:['10001','11011','10101','10001','10001'],
+E:['11111','10000','11110','10000','11111'],
+R:['11110','10001','11110','10100','10010'],
+A:['01110','10001','11111','10001','10001'],
+N:['10001','11001','10101','10011','10001']
+};
+function drawLogo(){
+  const s='BOMBERMAN',scale=3,gap=3,w=s.length*5*scale+(s.length-1)*gap,x=Math.floor((W-w)/2),y=79;
+  drawLogoAt(s,x+2,y+2,scale,C.red,gap);
+  drawLogoAt(s,x,y,scale,C.white,gap);
+}
+function drawLogoAt(s,x,y,scale,color,gap){
+  ctx.fillStyle=color; let xx=x;
+  for(const ch of s){const g=LOGO5[ch];for(let yy=0;yy<5;yy++)for(let ix=0;ix<5;ix++)if(g[yy][ix]==='1')ctx.fillRect(xx+ix*scale,y+yy*scale,scale,scale);xx+=5*scale+gap}
+}
+function drawTitle(){
+  px(0,0,W,H,C.black);
+  drawLogo();
+  drawText('START',W/2,128,{align:'center',color:C.white});
+  drawText('CONTINUE',W/2,144,{align:'center',color:C.white});
+  drawCursorBomb(titleSel?W/2-50:W/2-38,titleSel?142:126);
+  drawText('TOP '+String(highScore).padStart(8,'0'),W/2,176,{align:'center',color:C.white});
+  drawText('CLASSIC ARCADE STYLE',W/2,224,{align:'center',color:C.mgrey});
+}
+function drawCursorBomb(x,y){px(x+2,y+3,8,8,C.black);px(x+3,y+2,6,2,C.black);px(x+4,y+4,2,1,C.mgrey);px(x+9,y+1,2,2,C.mgrey);px(x+11,y,1,1,C.yellow)}
+function drawCard(){px(0,0,W,H,C.black);drawText('STAGE '+game.stage,W/2,112,{align:'center',color:C.white})}
+function drawPause(){px(0,0,W,H,C.black);drawText('PAUSE',W/2,92,{align:'center',color:C.white});drawText('ARROWS MOVE SPACE BOMB P PAUSE',W/2,128,{align:'center',color:C.mgrey});drawText('M MUTE ESC TITLE',W/2,144,{align:'center',color:C.mgrey})}
+function drawGameOver(){px(0,0,W,H,C.black);drawText('GAME OVER',W/2,112,{align:'center',color:C.white})}
+
+function loop(){const t=now(),dt=Math.min(.05,t-last);last=t;if(state!=='loading')update(dt);draw();requestAnimationFrame(loop)}
+function startGame(){startAudio();newGame(1,2,0)}
+function continueGame(){startAudio();newGame(savedStage||(game&&game.stage)||1,2,0)}
+function goTitle(){paused=false;state='title';keys={}}
+window.addEventListener('keydown',e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Spacebar','x','X','Enter','Escape'].includes(e.key))e.preventDefault();
+  if(state==='title'&&(e.key==='ArrowUp'||e.key==='ArrowDown')){titleSel=titleSel?0:1;beep(330,.04,'square',.04);return}
+  if(e.key===' '||e.key==='Spacebar'||e.key==='x'||e.key==='X')dropOrDetonate();
+  else if(e.key==='Enter'){if(state==='title'){titleSel?continueGame():startGame()}else if(state==='gameover')continueGame()}
+  else if(e.key==='Escape')goTitle();
+  else if(e.key==='p'||e.key==='P'){if(state==='playing'){paused=!paused;beep(paused?220:440,.04,'square',.04)}}
+  else if(e.key==='m'||e.key==='M'){muted=!muted;if(audio)audio.master.gain.value=muted?0:.045}
+  else keys[e.key]=true;
+},{passive:false});
+window.addEventListener('keyup',e=>{keys[e.key]=false});
+cvs.addEventListener('pointerdown',()=>{if(state==='title'){titleSel?continueGame():startGame()}startAudio()});
+loadSave();loop();
+})();
+</script>
+</body>
+</html>
