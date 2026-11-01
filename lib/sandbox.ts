@@ -42,6 +42,14 @@ export const BRIDGE_SCRIPT = `
     }
   }, true);
   document.addEventListener('pointerdown', function () { parent.postMessage({ aic: true, event: 'focus' }, '*'); }, true);
+  // Browser autofill and autocomplete history have no place in a desktop app.
+  function quiet(root) {
+    var els = root.querySelectorAll ? root.querySelectorAll('input, textarea, form') : [];
+    for (var i = 0; i < els.length; i++) { els[i].setAttribute('autocomplete', 'off'); if (els[i].tagName !== 'FORM') { els[i].setAttribute('autocorrect', 'off'); els[i].setAttribute('spellcheck', 'false'); } }
+    if (root.tagName === 'INPUT' || root.tagName === 'TEXTAREA' || root.tagName === 'FORM') root.setAttribute('autocomplete', 'off');
+  }
+  function watch() { quiet(document); new MutationObserver(function (ms) { ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) quiet(n); }); }); }).observe(document.documentElement, { childList: true, subtree: true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
 })();
 </script>`;
 

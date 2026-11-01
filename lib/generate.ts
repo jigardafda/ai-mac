@@ -33,6 +33,7 @@ Behaviour rules real users tested and complained about:
 - Apps that keep records or documents show a quiet "Saved" confirmation after changes persist and an error if a save fails; tools without documents (Calculator, drawing boards, players) show no save status at all.
 - Dates in the interface are written with the month as a word (1 Nov 2026, Sun 1 Nov); never numeric month/day orderings. Times as 9:30 AM.
 - The desktop owns Cmd/Ctrl+Space, N, W and M; do not bind them. Copy to clipboard uses navigator.clipboard with a fallback to a hidden textarea and execCommand('copy').
+- Every input, textarea and form carries autocomplete="off" (and spellcheck="false" where spelling does not matter) so the browser never shows its own autofill dropdowns.
 - Never show a dead-end control: anything that cannot work in this environment (sharing sheets, system integrations) is left out or clearly replaced by what does work (copy, export, download).
 
 Host API, already available as window.aic (all functions return Promises):

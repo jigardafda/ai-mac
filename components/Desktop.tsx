@@ -90,6 +90,15 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const accent = ACCENTS[p("accent", "blue")] ?? ACCENTS.blue;
   const reduceMotion = p("reduceMotion", false) || p<string>("lowPower", "never") === "always";
 
+  // No browser autofill popups anywhere in the shell either.
+  useEffect(() => {
+    const quiet = (root: ParentNode) => root.querySelectorAll("input, textarea, form").forEach((el) => el.setAttribute("autocomplete", "off"));
+    quiet(document);
+    const mo = new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n instanceof HTMLElement) { quiet(n); if (n.matches("input, textarea, form")) n.setAttribute("autocomplete", "off"); } })));
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+
   /* ---------- clock ---------- */
   useEffect(() => {
     const tick = () => {
