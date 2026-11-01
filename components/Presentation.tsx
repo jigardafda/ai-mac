@@ -47,11 +47,11 @@ function Architecture() {
   );
 }
 function Pipeline() {
-  const steps = [["Brief", "the catalog or your sentence"], ["Design", "name, slug, icon prompt"], ["Write", "one HTML file, streamed"], ["Validate", "no parent, no cookies, no scripts"], ["Run", "headless Chromium, 2 widths"], ["Repair", "one round if it broke"], ["Save", "version n, cached per user"]];
+  const steps = [["Brief", "catalog or sentence"], ["Design", "name and icon"], ["Write", "one HTML file"], ["Validate", "no reach outside"], ["Run", "headless Chromium"], ["Repair", "one round"], ["Save", "version n"]];
   return (
     <svg viewBox="0 0 900 300" className={styles.diagram}>
       <Defs />
-      {steps.map(([t, s], i) => <g key={t}><Box x={20 + i * 125} y={110} w={110} h={70} title={t} sub={s} fill={i === 4 ? "#eef4ff" : "#fff"} />{i < steps.length - 1 ? <Arrow x1={130 + i * 125} y1={145} x2={145 + i * 125} y2={145} /> : null}</g>)}
+      {steps.map(([t, s], i) => <g key={t}><Box x={16 + i * 126} y={110} w={112} h={70} title={t} sub={s} fill={i === 4 ? "#eef4ff" : "#fff"} />{i < steps.length - 1 ? <Arrow x1={128 + i * 126} y1={145} x2={142 + i * 126} y2={145} /> : null}</g>)}
       <text x="450" y="60" textAnchor="middle" fontSize="14" fill="rgba(0,0,0,.6)">About 60 to 140 seconds the first time. A few hundred milliseconds every time after.</text>
       <text x="450" y="250" textAnchor="middle" fontSize="13" fill="rgba(0,0,0,.55)">Improve sends the current code plus your request through the same path; the old version stays available.</text>
     </svg>

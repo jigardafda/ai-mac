@@ -12,6 +12,9 @@ import { ACCENTS, Settings } from "./Settings";
 import { Terminal } from "./Terminal";
 import { Browser } from "./Browser";
 import { Presentation } from "./Presentation";
+import { Finder } from "./Finder";
+import { ActivityMonitor } from "./ActivityMonitor";
+import { TextEdit } from "./TextEdit";
 import { useAppMenus } from "@/lib/appmenus";
 import styles from "./desktop.module.css";
 
@@ -23,7 +26,7 @@ export type Win = {
   origin?: { x: number; y: number }; // where it zooms out from (the icon)
   target?: { x: number; y: number }; // where it shrinks to (the dock)
   opened: boolean; zooming: boolean;
-  pane?: string; // System Settings pane to open on
+  pane?: string; // System Settings pane, a file path for TextEdit or Finder
 };
 type Notice = { id: number; title: string; body: string; icon: string; leaving?: boolean };
 type Geom = { x: number; y: number; w: number; h: number };
@@ -106,10 +109,11 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
 
   // Desktops made before Safari, Terminal and System Settings existed get them in the dock once.
   useEffect(() => {
-    if (initialPrefs.dockV2) return;
+    if (initialPrefs.dockV3) return;
     const t = setTimeout(() => setDockState((d) => {
-      const next = [...(d.includes("browser") ? [] : ["browser"]), ...d, ...(d.includes("terminal") ? [] : ["terminal"]), ...(d.includes("settings") ? [] : ["settings"])];
-      fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ dock_slugs: next, prefs: { dockV2: true } }) }).catch(() => {});
+      let next = d.filter((x) => !["finder", "browser", "textedit", "terminal", "settings"].includes(x));
+      next = ["finder", "browser", ...next, "textedit", "terminal", "settings"];
+      fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ dock_slugs: next, prefs: { dockV2: true, dockV3: true } }) }).catch(() => {});
       return next;
     }), 0);
     return () => clearTimeout(t);
@@ -404,7 +408,8 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
       { label: "Close Window", shortcut: `${K}W`, action: () => close(activeWin.id) },
       { label: "Quit", shortcut: `${K}Q`, action: () => openWins.filter((w) => w.slug === activeWin.slug).forEach((w) => close(w.id)) },
     ] : [
-      { label: "About Finder", disabled: true }, "sep",
+      { label: "About Finder", hint: "AI Mac 1.0", disabled: true }, "sep",
+      { label: "New Finder Window", shortcut: `${K}N`, action: () => open("finder") }, "sep",
       { label: "Empty Trash…", action: () => { openTrash(); } },
     ] },
     { key: "file", title: "File", items: [
@@ -478,6 +483,12 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
     ? <Settings user={user} apps={allApps.filter((a) => !isBuiltin(a.slug))} prefs={prefs} setPrefs={setPrefs} wallpaper={wallpaper} setWallpaper={setWallpaper} dock={dock} setDock={setDock} initialPane={w.pane} onLock={() => setLocked(true)} onSignOut={signOut} onOpenApp={(s) => open(s)} notify={(t, title) => notify(t, title ?? "System Settings", "/icons/settings.png")} />
     : w.slug === "browser"
       ? <Browser prefs={prefs} setPrefs={setPrefs} isMac={isMac} notify={(t) => notify(t, "Safari", "/icons/browser.png")} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
+    : w.slug === "finder"
+      ? <Finder apps={allApps.filter((a) => !isBuiltin(a.slug) || a.slug !== "finder")} initialPath={w.pane} isMac={isMac} userName={name} notify={(t) => notify(t, "Finder", "/icons/finder.png")} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} onOpenApp={(s, arg) => open(s, undefined, arg)} />
+    : w.slug === "activity"
+      ? <ActivityMonitor apps={allApps.filter((a) => !isBuiltin(a.slug))} wins={wins} isMac={isMac} userName={name} onCloseWindow={close} onOpenApp={(s) => open(s)} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
+    : w.slug === "textedit"
+      ? <TextEdit initialPath={w.pane} isMac={isMac} notify={(t) => notify(t, "TextEdit", "/icons/textedit.png")} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} />
     : w.slug === "keynote"
       ? <Presentation isMac={isMac} onTitle={(t) => update(w.id, { title: t })} onClose={() => close(w.id)} onOpenApp={(s) => open(s)} stats={{ apps: allApps.length, built: apps.filter((a) => a.version).length, versions: apps.reduce((n, a) => n + (a.version ?? 0), 0) }} />
     : w.slug === "terminal"
@@ -487,7 +498,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   return (
     <div className={`${styles.desktop} ${dark ? styles.dark : ""} ${reduceMotion ? styles.reduceMotion : ""} ${p("reduceTransparency", false) ? styles.opaque : ""} ${p("contrast", false) ? styles.contrast : ""}`} style={rootStyle} data-theme={dark ? "dark" : "light"}
       onMouseDown={(e) => { if (e.target === e.currentTarget) { setSelected(null); setCtx(null); } }}
-      onContextMenu={(e) => { if (e.target === e.currentTarget) showCtx(e, [{ label: "New App…", action: () => setNewOpen(true) }, "sep", { label: "Change Wallpaper…", action: () => open("settings", undefined, "wallpaper") }, { label: "Clean Up", action: () => setSelected(null) }, "sep", { label: "Open Trash", action: openTrash }]); }}>
+      onContextMenu={(e) => { if (e.target === e.currentTarget) showCtx(e, [{ label: "New Folder", action: () => open("finder", undefined, "/Desktop") }, { label: "New App…", action: () => setNewOpen(true) }, "sep", { label: "Change Wallpaper…", action: () => open("settings", undefined, "wallpaper") }, { label: "Clean Up", action: () => setSelected(null) }, "sep", { label: "Open Trash", action: openTrash }]); }}>
       <MenuBar left={leftMenus} right={rightMenus} clock={clock} />
 
       {p("desktopIcons", true) ? (

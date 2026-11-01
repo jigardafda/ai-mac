@@ -18,6 +18,9 @@ export const WINDOW_SIZES: Record<string, { w: number; h: number; minW?: number;
   terminal: { w: 700, h: 440, minW: 420, minH: 240 },
   browser: { w: 1180, h: 760, minW: 640, minH: 400 },
   keynote: { w: 1240, h: 780, minW: 760, minH: 480 },
+  activity: { w: 860, h: 600, minW: 640, minH: 400 },
+  finder: { w: 980, h: 620, minW: 640, minH: 380 },
+  textedit: { w: 760, h: 620, minW: 480, minH: 320 },
 };
 export const DEFAULT_MIN = { minW: 520, minH: 320 };
 
@@ -91,6 +94,9 @@ export const NEW_APP_SLUG = "new-app";
 
 /** Apps that are part of the system itself, rendered by the shell rather than generated. */
 export const BUILTIN_APPS = [
+  { slug: "finder", name: "Finder", icon: "/icons/finder.png", description: "Your files: Documents, Desktop, Downloads and the Trash. Icon and list views, Quick Look, Get Info." },
+  { slug: "activity", name: "Activity Monitor", icon: "/icons/activity.png", description: "Live CPU, memory, energy, disk and network for this desktop and its server." },
+  { slug: "textedit", name: "TextEdit", icon: "/icons/textedit.png", description: "Rich and plain text documents, saved into your files." },
   { slug: "settings", name: "System Settings", icon: "/icons/settings.png", description: "Appearance, wallpaper, dock, displays, notifications, users, privacy and everything else about this Mac." },
   { slug: "terminal", name: "Terminal", icon: "/icons/terminal.png", description: "A zsh style shell over your apps and their data." },
   { slug: "browser", name: "Safari", icon: "/icons/browser.png", description: "Browse the web. Pages open through AI Mac in a sealed frame." },
