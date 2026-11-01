@@ -35,6 +35,7 @@ export function Browser({ onTitle, onClose }: Props) {
   const [editing, setEditing] = useState(false);
   const nextId = useRef(2);
   const frame = useRef<HTMLIFrameElement>(null);
+  const addr = useRef<HTMLInputElement>(null);
   const tab = tabs.find((t) => t.id === cur) ?? tabs[0];
 
   const patch = useCallback((id: number, p: Partial<Tab> | ((t: Tab) => Partial<Tab>)) => setTabs((ts) => ts.map((t) => (t.id === id ? { ...t, ...(typeof p === "function" ? p(t) : p) } : t))), []);
@@ -44,7 +45,7 @@ export function Browser({ onTitle, onClose }: Props) {
   const back = () => patch(cur, (t) => (t.idx > 0 ? { idx: t.idx - 1, url: t.hist[t.idx - 1], loading: !!t.hist[t.idx - 1] } : {}));
   const fwd = () => patch(cur, (t) => (t.idx < t.hist.length - 1 ? { idx: t.idx + 1, url: t.hist[t.idx + 1], loading: !!t.hist[t.idx + 1] } : {}));
   const reload = () => { if (frame.current && tab.url) { patch(cur, { loading: true }); frame.current.src = `/api/browse?url=${encodeURIComponent(tab.url)}&t=${Date.now()}`; } };
-  const newTab = () => { const id = nextId.current++; setTabs((ts) => [...ts, { id, url: "", title: "Start Page", hist: [""], idx: 0, loading: false }]); setCur(id); setEditing(true); setField(""); };
+  const newTab = () => { const id = nextId.current++; setTabs((ts) => [...ts, { id, url: "", title: "Start Page", hist: [""], idx: 0, loading: false }]); setCur(id); setEditing(true); setField(""); setTimeout(() => addr.current?.focus(), 30); };
   const closeTab = (id: number) => {
     if (tabs.length === 1) return onClose();
     const i = tabs.findIndex((t) => t.id === id);
@@ -81,7 +82,7 @@ export function Browser({ onTitle, onClose }: Props) {
         </span>
         <form className={`${styles.address} ${editing ? styles.addressEditing : ""}`} onSubmit={submit}>
           {!editing && tab.url ? <span className={styles.lock} title={secure ? "Secure connection" : "Not secure"}><svg viewBox="0 0 16 16">{secure ? <><rect x="3.5" y="7" width="9" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></> : <circle cx="8" cy="8" r="5" />}</svg></span> : null}
-          <input value={editing ? field : (tab.url ? pretty(tab.url) : "")} placeholder="Search or enter website name" spellCheck={false} autoComplete="off"
+          <input ref={addr} value={editing ? field : (tab.url ? pretty(tab.url) : "")} placeholder="Search or enter website name" spellCheck={false} autoComplete="off"
             onFocus={(e) => { setEditing(true); setField(tab.url); requestAnimationFrame(() => e.target.select()); }}
             onBlur={() => setEditing(false)} onChange={(e) => setField(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Escape") { setEditing(false); (e.target as HTMLInputElement).blur(); } }} />
