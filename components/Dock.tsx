@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./dock.module.css";
 
 export type DockEntry =
@@ -16,10 +16,32 @@ const REACH = 2.6; // how many icons either side feel the cursor
 
 /** The macOS dock: translucent bar, icons that magnify around the cursor, tooltips,
  *  running dots, a bounce while an app is being built, minimised windows on the right. */
-export function Dock({ entries, size: iconSize = 52, magnify = true, maxSize = 92, onApp, onMin, onNew, onTrash, onContext }: { entries: DockEntry[]; size?: number; magnify?: boolean; maxSize?: number; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void; onContext: (e: React.MouseEvent, entry: DockEntry) => void }) {
+export function Dock({ entries, size: iconSize = 52, magnify = true, maxSize = 92, launching, onApp, onMin, onNew, onTrash, onContext }: { entries: DockEntry[]; size?: number; magnify?: boolean; maxSize?: number; launching?: Set<string>; onApp: (slug: string) => void; onMin: (winId: number) => void; onNew: () => void; onTrash: () => void; onContext: (e: React.MouseEvent, entry: DockEntry) => void }) {
   const BASE = iconSize, MAX = Math.max(iconSize, maxSize);
   const [mouseX, setMouseX] = useState<number | null>(null);
+  const [settling, setSettling] = useState(true); // animate sizes only while the pointer is entering or leaving
   const el = useRef<HTMLElement>(null);
+  const raf = useRef(0);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The pointer position is applied once per frame, with no CSS transition in
+  // between, so magnification tracks the cursor the way the real Dock does.
+  const onMove = useCallback((e: React.MouseEvent) => {
+    const x = e.clientX;
+    if (raf.current) return;
+    raf.current = requestAnimationFrame(() => { raf.current = 0; setMouseX(x); });
+  }, []);
+  const onEnter = useCallback((e: React.MouseEvent) => {
+    setSettling(true);
+    setMouseX(e.clientX);
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => setSettling(false), 160);
+  }, []);
+  const onLeave = useCallback(() => {
+    setSettling(true);
+    setMouseX(null);
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+  }, []);
+  useEffect(() => () => { if (raf.current) cancelAnimationFrame(raf.current); if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
   // Base centre of every entry in page coordinates. The dock is centred on the
   // viewport and only grows outward, so positions computed from the rest sizes
@@ -38,7 +60,7 @@ export function Dock({ entries, size: iconSize = 52, magnify = true, maxSize = 9
   };
 
   return (
-    <nav ref={el} className={styles.dock} style={{ height: BASE + 16 }} aria-label="Dock" onMouseMove={(e) => setMouseX(e.clientX)} onMouseLeave={() => setMouseX(null)}>
+    <nav ref={el} className={`${styles.dock} ${settling ? styles.settling : ""}`} style={{ height: BASE + 16 }} aria-label="Dock" onMouseEnter={onEnter} onMouseMove={onMove} onMouseLeave={onLeave}>
       {entries.map((e, i) => {
         if (e.kind === "sep") return <span key={`sep-${i}`} className={styles.sep} />;
         const s = size(i);
@@ -77,7 +99,7 @@ export function Dock({ entries, size: iconSize = 52, magnify = true, maxSize = 9
           <button key={e.slug} {...common} onClick={() => onApp(e.slug)} aria-label={e.name} data-dock={e.slug}>
             <span className={styles.tip}>{e.name}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={e.icon} alt="" draggable={false} className={e.building ? styles.bounce : ""} />
+            <img src={e.icon} alt="" draggable={false} className={e.building ? styles.bounce : launching?.has(e.slug) ? styles.launch : ""} />
             {e.running ? <span className={styles.dot} /> : null}
           </button>
         );

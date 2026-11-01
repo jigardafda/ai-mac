@@ -51,6 +51,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [building, setBuilding] = useState<Set<string>>(new Set());
+  const [launching, setLaunching] = useState<Set<string>>(new Set()); // dock icons mid launch bounce
   const [about, setAbout] = useState(false);
   const [trash, setTrash] = useState<AppRow[] | null>(null);
   const [locked, setLocked] = useState(false);
@@ -184,7 +185,11 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
     const g = place(slug, wins.length);
     setWins((ws) => [...ws, { id, slug, title: app.name, ...g, z: zRef.current, max: false, state: "open", origin, opened: false, zooming: false, pane }]);
     setActive(id);
-  }, [allApps, wins, focus, place, update]);
+    if (p("bounceOpen", true)) {
+      setLaunching((l) => new Set(l).add(slug));
+      setTimeout(() => setLaunching((l) => { const n = new Set(l); n.delete(slug); return n; }), 2500);
+    }
+  }, [allApps, wins, focus, place, update, p]);
   const close = useCallback((id: number) => {
     setWins((ws) => {
       const w = ws.find((x) => x.id === id);
@@ -532,7 +537,7 @@ export function Desktop({ user, initialApps, dockSlugs, wallpaper: initialWallpa
       ))}
 
       <div className={`${styles.dockWrap} ${dockShown ? "" : styles.dockHidden}`}>
-        <Dock entries={dockEntries} size={p<number>("dockSize", 52)} magnify={p("magnification", true)} maxSize={p<number>("magnifySize", 92)} onApp={(s) => open(s)} onMin={(id) => focus(id)} onNew={() => setNewOpen(true)} onTrash={openTrash}
+        <Dock entries={dockEntries} launching={launching} size={p<number>("dockSize", 52)} magnify={p("magnification", true)} maxSize={p<number>("magnifySize", 92)} onApp={(s) => open(s)} onMin={(id) => focus(id)} onNew={() => setNewOpen(true)} onTrash={openTrash}
           onContext={(e, entry) => {
             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
             const anchor = { x: r.left + r.width / 2, bottom: window.innerHeight - r.top + 14 };

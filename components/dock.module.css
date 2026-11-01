@@ -24,7 +24,13 @@
   border: 0;
   background: none;
   cursor: default;
-  transition: width 0.08s linear, height 0.08s linear;
+  transition: none;
+  will-change: width, height;
+}
+
+/* Sizes animate only when the pointer arrives or leaves; while it moves they follow it directly. */
+.settling .item {
+  transition: width 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .item img {
@@ -33,6 +39,11 @@
   height: 100%;
   border-radius: 22%;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  transform-origin: 50% 100%;
+}
+
+.item:active img {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25)) brightness(0.72);
 }
 
 .trash {
@@ -139,9 +150,20 @@
   filter: none;
 }
 
-/* Bounce while the app is being written */
+/* Bounce while the app is being written; two bounces when an app is launched */
 .bounce {
   animation: bounce 1.1s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+
+.launch {
+  animation: launch 1.25s cubic-bezier(0.3, 0, 0.2, 1) 2;
+}
+
+@keyframes launch {
+  0%, 100% { transform: translateY(0); animation-timing-function: ease-out; }
+  40% { transform: translateY(-34px); animation-timing-function: ease-in; }
+  80% { transform: translateY(0); animation-timing-function: ease-out; }
+  90% { transform: translateY(-6px); animation-timing-function: ease-in; }
 }
 
 @keyframes bounce {
