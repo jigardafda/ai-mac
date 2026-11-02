@@ -19,6 +19,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - The OpenAI client is created on first use, so the desktop and every shipped app work without an API key.
 
 ### Fixed
+- The Safari app rendered other sites unstyled with broken images: the new Content-Security-Policy blocked the `<base>` tag the proxy injects. `/api/browse` now has its own narrower policy.
 - The per-address cooldown and hourly budget for codes are kept per purpose, so anyone requesting sign-in codes for an address can no longer use up its admin budget and lock an admin out.
 - Sign-in and admin codes are bound to their purpose, so one cannot be used for the other.
 - A burst of parallel code requests could slip past the cooldown and hourly limits; they are now enforced under a lock.
