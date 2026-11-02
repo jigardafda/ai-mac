@@ -11,10 +11,6 @@ const baseHeaders = [
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
 ];
 
-// Cross-origin isolation (needed by the Linux terminal's SharedArrayBuffer). "credentialless" keeps
-// other sites' images and scripts loading in the Safari app, which "require-corp" would block.
-if (process.env.AIC_ISOLATE) baseHeaders.push({ key: "Cross-Origin-Embedder-Policy", value: "credentialless" });
-
 // The pages and API get the strict policy. /api/browse serves other people's pages, which the proxy
 // rewrites with a <base> tag and whose forms it routes itself, so base-uri and form-action must stay
 // open there; it keeps the frame rule so only this site can frame it.

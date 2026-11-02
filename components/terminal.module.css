@@ -1,5 +1,14 @@
 /* Terminal.app "Basic" profile: white, Menlo 11pt, black text */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+}
+
 .term {
+  flex: 1;
+  min-height: 0;
   height: 100%;
   overflow: auto;
   padding: 4px 6px;
@@ -46,4 +55,51 @@
   font: inherit;
   color: inherit;
   caret-color: #000;
+}
+
+/* Real Linux, drawn by xterm.js in the same white "Basic" profile */
+.linuxBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  background: #f2f2f2;
+  border-bottom: 1px solid #ddd;
+  color: #555;
+  font: 11px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.linuxBar button {
+  height: auto;
+  padding: 1px 8px;
+  border: 1px solid #c8c8c8;
+  border-radius: 5px;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  cursor: pointer;
+}
+
+.linux {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 0 0 6px;
+  background: #fff;
+}
+
+.linuxHost {
+  height: 100%;
+}
+
+.linuxStatus {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: #fff;
+  color: #555;
+  text-align: center;
+  font: 11px Menlo, "SF Mono", ui-monospace, Monaco, Consolas, monospace;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AppRow } from "@/lib/apps";
+import { LinuxConsole } from "./LinuxConsole";
 import styles from "./terminal.module.css";
 
 type Props = { user: { id: number; email: string; name?: string }; apps: AppRow[]; hostname: string; onOpen: (slug: string) => void; onClose: () => void; onTitle: (t: string) => void };
@@ -10,7 +11,7 @@ type Line = { text: string; kind?: "in" | "err" };
 /**
  * A zsh-looking shell over a virtual disk: your apps live in /Applications and
  * on the Desktop, their saved records under ~/Documents/<app>/<key>.json.
- * Nothing here touches the real machine.
+ * Nothing here touches the real machine. `linux` boots a real Linux in the same window (LinuxConsole).
  */
 export function Terminal({ user, apps, hostname, onOpen, onClose, onTitle }: Props) {
   const name = user.email.split("@")[0].replace(/[^a-z0-9._-]/gi, "").toLowerCase() || "user";
@@ -21,12 +22,16 @@ export function Terminal({ user, apps, hostname, onOpen, onClose, onTitle }: Pro
   const [hist, setHist] = useState<string[]>([]);
   const [hi, setHi] = useState(-1);
   const [busy, setBusy] = useState(false);
+  const [linuxOn, setLinuxOn] = useState(false); // booted once; kept alive while the window is open
+  const [mode, setMode] = useState<"mac" | "linux">("mac");
+  const [linuxState, setLinuxState] = useState<"loading" | "ready" | "error">("loading");
+  const macTitle = `${name} — -zsh — 80×24`;
   const cache = useRef<Record<string, Record<string, unknown>>>({});
   const box = useRef<HTMLDivElement>(null);
   const inp = useRef<HTMLInputElement>(null);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- set once; onTitle is a fresh closure every render
-  useEffect(() => { onTitle(`${name} — -zsh — 80×24`); }, [name]);
+  useEffect(() => { onTitle(macTitle); }, [name]);
   useEffect(() => { box.current?.scrollTo(0, box.current.scrollHeight); }, [lines, busy]);
 
   const prompt = `${name}@${hostname} ${cwd === home ? "~" : cwd.startsWith(home + "/") ? "~" + cwd.slice(home.length) : cwd} %`;
@@ -79,6 +84,7 @@ export function Terminal({ user, apps, hostname, onOpen, onClose, onTitle }: Pro
   pwd            where you are           cat <file>     print a file (app data is JSON)
   open <app>     open an app window      apps           list your apps and versions
   ask <text>     ask the AI              calc <expr>    arithmetic
+  linux          boot a real Linux system in this window
   echo, date, whoami, hostname, uname, uptime, sw_vers, history, clear, exit
 Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
 
@@ -92,6 +98,7 @@ Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
     switch (c) {
       case "help": case "man": return print(HELP);
       case "clear": return setLines([]);
+      case "linux": { setLinuxOn(true); setMode("linux"); onTitle("root@linux — ttyS0 — 80×24"); return; }
       case "pwd": return print(cwd);
       case "whoami": return print(name);
       case "hostname": return print(`${hostname}.local`);
@@ -127,7 +134,7 @@ Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
   async function complete() {
     const parts = input.split(" ");
     const last = parts[parts.length - 1];
-    if (parts.length === 1) { const cmds = ["help", "ls", "cd", "pwd", "cat", "open", "apps", "ask", "calc", "echo", "date", "whoami", "hostname", "uname", "uptime", "sw_vers", "history", "clear", "exit", "neofetch"]; const m = cmds.filter((x) => x.startsWith(last)); if (m.length === 1) setInput(m[0] + " "); else if (m.length) print(m.join("  ")); return; }
+    if (parts.length === 1) { const cmds = ["help", "ls", "cd", "pwd", "cat", "open", "apps", "ask", "calc", "echo", "date", "whoami", "hostname", "uname", "uptime", "sw_vers", "history", "clear", "exit", "neofetch", "linux"]; const m = cmds.filter((x) => x.startsWith(last)); if (m.length === 1) setInput(m[0] + " "); else if (m.length) print(m.join("  ")); return; }
     const dir = last.includes("/") ? resolve(last.slice(0, last.lastIndexOf("/") + 1)) : cwd;
     const base = last.includes("/") ? last.slice(last.lastIndexOf("/") + 1) : last;
     const l = parts[0] === "open" ? apps.map((a) => a.name) : (await listDir(dir)) || [];
@@ -136,7 +143,15 @@ Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
   }
 
   return (
-    <div className={styles.term} ref={box} onClick={() => inp.current?.focus()}>
+    <div className={styles.wrap}>
+    {linuxOn ? (
+      <div className={styles.linuxBar} style={{ display: mode === "linux" ? undefined : "none" }}>
+        <span>Linux 6.8.12 · i686 · {linuxState === "ready" ? "running" : linuxState === "error" ? "stopped" : "starting"}</span>
+        <button onClick={() => { setMode("mac"); onTitle(macTitle); setTimeout(() => inp.current?.focus(), 0); }}>← macOS shell</button>
+      </div>
+    ) : null}
+    {linuxOn ? <LinuxConsole visible={mode === "linux"} onState={setLinuxState} /> : null}
+    <div className={styles.term} ref={box} style={{ display: mode === "mac" ? undefined : "none" }} onClick={() => inp.current?.focus()}>
       {lines.map((l, i) => <div key={i} className={`${styles.line} ${l.kind === "err" ? styles.err : ""} ${l.kind === "in" ? styles.in : ""}`}>{l.text || " "}</div>)}
       {busy ? <div className={styles.line}>…</div> : (
         <div className={styles.promptLine}>
@@ -154,6 +169,7 @@ Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
             }} />
         </div>
       )}
+    </div>
     </div>
   );
 }

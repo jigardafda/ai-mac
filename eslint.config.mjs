@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party engine copied here by scripts/linux-assets.mjs
+    "public/linux/**",
   ]),
 ]);
 

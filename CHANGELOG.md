@@ -5,6 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Added
+- A real Linux in the Terminal: type `linux` to boot a Linux 6.8 (i686) kernel and busybox shell in the window, running in the browser through the v86 emulator. No network, RAM disk, no special headers. See `THIRD_PARTY_NOTICES.md` for licences.
 - AI Mac logo, favicon and Apple touch icon; the logo is on the sign-in card and in the menu bar.
 - Open-source project files: MIT license, contributing guide, code of conduct, security policy, issue and pull request templates, CI, CodeQL and Dependabot.
 - README rewritten with screenshots, a tour GIF, an architecture diagram and a quick start.

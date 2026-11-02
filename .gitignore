@@ -44,3 +44,9 @@ next-env.d.ts
 # local
 /.local-logs
 /public/wallpapers/*.png
+
+# Linux terminal: fetched or copied by scripts/linux-assets.mjs (the BIOS files are committed)
+/public/linux/buildroot-bzimage68.bin
+/public/linux/buildroot-bzimage68.bin.part
+/public/linux/libv86.mjs
+/public/linux/v86.wasm
