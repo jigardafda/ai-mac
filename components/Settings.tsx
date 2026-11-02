@@ -209,7 +209,7 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
         </>; }
         case "sharing": return <>
           <Group title="Local hostname">
-            <Row label="Hostname" sub="Used by the Terminal prompt"><input className={styles.text} value={p("hostname", "AI-Mac")} onChange={(e) => set("hostname", e.target.value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 24) || "AI-Mac")} /></Row>
+            <Row label="Hostname" sub="Used by the Linux and shell prompts"><input className={styles.text} value={p("hostname", "AI-Mac")} onChange={(e) => set("hostname", e.target.value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 24) || "AI-Mac")} /></Row>
           </Group>
           <Group>
             {["Screen Sharing", "File Sharing", "Media Sharing", "Printer Sharing", "Remote Login", "Remote Management", "Internet Sharing", "Content Caching"].map((s) => <Row key={s} label={s}><Toggle on={false} onChange={() => notify(`${s} is not available on this Mac.`, "Sharing")} /></Row>)}
@@ -306,7 +306,7 @@ export function Settings({ user, apps, prefs, setPrefs, wallpaper, setWallpaper,
         <Group><Row label="Automatically hide and show the menu bar"><Sel value={p("hideMenuBar", "never")} options={[["never", "Never"], ["fullscreen", "In Full Screen Only"]]} onChange={(v) => set("hideMenuBar", v)} /></Row></Group>
       </>; }
       case "siri": return <>
-        <Group><Row label="Ask Siri" sub="Siri is not available on a web desktop; the Terminal's `ask` command talks to the model"><Toggle on={false} onChange={() => {}} disabled /></Row></Group>
+        <Group><Row label="Ask Siri" sub="Siri is not available on a web desktop; the shell's `ask` command talks to the model"><Toggle on={false} onChange={() => {}} disabled /></Row></Group>
         <Group title="Spotlight" note="Choose what Spotlight searches.">
           <Row label="Applications"><Toggle on={true} onChange={() => {}} disabled /></Row>
           <Row label="App descriptions"><Toggle on={p("spotlightDescriptions", true)} onChange={(v) => set("spotlightDescriptions", v)} /></Row>

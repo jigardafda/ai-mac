@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { CHAT_MODEL, openai } from "@/lib/openai";
 
-/** The Terminal's `ask` command. */
+/** The `ask` command of the Linux app's macOS-style shell. */
 export async function POST(req: Request) {
   await requireUser();
   const { prompt } = await req.json().catch(() => ({}));

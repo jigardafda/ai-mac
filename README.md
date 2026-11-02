@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/tour.gif" alt="A tour of AI Mac: sign in with an emailed code, open Calculator, Notes, Weather, Music, Calendar, play Bomberman, use the Terminal" width="860">
+  <img src="docs/images/tour.gif" alt="A tour of AI Mac: sign in with an emailed code, open Calculator, Notes, Weather, Music, Calendar, play Bomberman, open Linux" width="860">
 </p>
 
 > **An experiment, not a product.** AI Mac is an independent project. It is not affiliated with, endorsed by or sponsored by Apple Inc. "Mac", "macOS" and the names of Apple's apps are trademarks of Apple Inc.; the apps here are original code written to resemble them.
@@ -39,8 +39,8 @@ Sign in with just your email (a six digit code arrives by email, no password; ne
 - **"New app" turns a sentence into a new icon.** *"A habit tracker with streaks"* becomes an app on your desktop with a generated icon.
 - **"Improve" rewrites an app the way you ask**, and keeps every old version so you can roll back.
 - **Apps are sandboxed.** Generated code runs in an iframe with no origin and talks to the desktop only through a small, narrow API.
-- **A real Linux, in the Terminal.** Type `linux` and a real Linux 6.8 kernel boots in the window in about two seconds, running entirely in your browser.
-- **It also ships real, hand-written apps:** Finder, TextEdit, Terminal, Safari (a sandboxed proxy browser), System Settings and Activity Monitor, plus reviewed builds of the default apps so a new desktop works at once.
+- **A real Linux.** The Linux app opens straight into a real Linux 6.8 kernel that boots in about two seconds, running entirely in your browser, with Mac-style commands like `open Notes` and `pbcopy`.
+- **It also ships real, hand-written apps:** Finder, TextEdit, Linux, Safari (a sandboxed proxy browser), System Settings and Activity Monitor, plus reviewed builds of the default apps so a new desktop works at once.
 
 ## Screenshots
 
@@ -59,7 +59,7 @@ Sign in with just your email (a six digit code arrives by email, no password; ne
   </tr>
   <tr>
     <td><img src="docs/images/calculator.jpg" alt="The Calculator app showing 46"><br><sub><b>Calculator</b> — keyboard and mouse.</sub></td>
-    <td><img src="docs/images/linux.jpg" alt="The Terminal running a real Linux 6.8 shell: uname, ls, free"><br><sub><b>Terminal, in Linux mode</b> — type <code>linux</code> for a real Linux kernel in the window.</sub></td>
+    <td><img src="docs/images/linux.jpg" alt="The Linux app running a real Linux 6.8 shell: uname, sw_vers, ls, free"><br><sub><b>Linux</b> — a real kernel in the window, with Mac-style commands.</sub></td>
   </tr>
 </table>
 
@@ -222,7 +222,7 @@ Besides the generated apps, the desktop has a set of real, hand-written componen
 | --- | --- |
 | Finder | browses your files, a small file system stored in Postgres (`lib/files.ts`), with the usual macOS folders and a Trash |
 | TextEdit | edits the text files in that file system |
-| Terminal | a simulated shell over the same files with `ls`, `cat` and friends, plus `linux` for a real Linux in the window |
+| Linux | a real Linux in the browser (see above), plus a simulated macOS-style shell over the same files with `ls`, `cat` and friends |
 | Safari | the proxy-backed browser, with Reader mode, find and zoom |
 | Settings | wallpaper, dock and appearance preferences |
 | Activity Monitor | shows running windows and builds |
@@ -246,7 +246,7 @@ app/              pages and API routes
   api/auth/       otp/request, otp/verify, logout
   api/apps/       list, create; per app: get or build, improve, data, ask, versions
   api/browse/     the sandboxed proxy behind Safari
-  api/files/      the per-user file system behind Finder, TextEdit and Terminal
+  api/files/      the per-user file system behind Finder, TextEdit and the macOS-style shell in Linux
 components/       Desktop (menu bar, icons, dock, windows), AppWindow (iframe, bridge, build UI), the built-in apps and LinuxConsole (the real Linux)
 lib/              db, auth, otp, catalog of default apps, generation, jobs, sandbox bridge, runtime check
 templates/        reviewed builds of the default apps, installed on first open
@@ -254,16 +254,17 @@ public/           wallpaper, icons and the logo; public/linux/ holds the Linux t
 docs/images/      README screenshots and the tour GIF
 ```
 
-## Linux in the Terminal
+## Linux
 
-Open Terminal and type `linux`. A real Linux 6.8 kernel (i686, with a busybox shell) boots in the same window in about two seconds, drawn by [xterm.js](https://xtermjs.org). A bar at the top switches back to the macOS-style shell, and the Linux session stays alive while you do.
+The **Linux** app (the penguin in the dock) opens straight into a real Linux 6.8 kernel (i686, with a busybox shell) that boots in about two seconds, drawn by [xterm.js](https://xtermjs.org). A bar at the top switches to the macOS-style shell, and the Linux session stays alive while you do. If the Linux image is missing, the app falls back to the macOS-style shell and says why.
 
 - **It runs in your browser,** inside the [v86](https://github.com/copy/v86) x86 emulator (BSD-2-Clause) compiled to WebAssembly. Nothing runs on the server, and it needs no special headers.
-- **There is no network, and the disk is RAM.** Files live until the window closes. Real commands and real files, but not a package manager, and not Python or Node: the image is a minimal Buildroot system.
-- **Setup is automatic.** `npm run dev` and `npm run build` run `scripts/linux-assets.mjs`, which copies the engine from `node_modules` and downloads the 10 MB kernel once, checking a pinned SHA-256. If the download fails, only the `linux` command is affected.
+- **It feels like a Mac terminal.** Cmd+K clears, Cmd+C copies a selection, Option+arrows move by word, and the title shows the live size. The prompt and hostname follow the *Hostname* setting (`root@ai-mac:~#`).
+- **Mac commands work inside Linux.** `open Notes` opens the real Notes window, `pbcopy` copies to your clipboard, `say` speaks, `ask <question>` asks the model, and `sw_vers`, `ll` and coloured `ls` are there too. They talk to the desktop through a private escape sequence, so they need no network.
+- **What is in the image:** busybox tools, `vi` (not vim), `lua`, `awk`, `sed`, `tar`, `curl` and `wget`. It has **no Python, vim, nano, gcc, git or bash**: it is a minimal Buildroot system.
+- **There is no network, and the disk is RAM.** Files live until the window closes.
+- **Setup is automatic.** `npm run dev` and `npm run build` run `scripts/linux-assets.mjs`, which copies the engine from `node_modules` and downloads the 10 MB kernel once, checking a pinned SHA-256.
 - **Licences.** The kernel and busybox are GPL-2.0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for every component, its licence and where to get the source.
-
-A fuller distribution (Alpine or Arch Linux 32 over 9p) and a persistent disk are possible next steps; they need a hosting decision for the larger images.
 
 ## Admin panel
 

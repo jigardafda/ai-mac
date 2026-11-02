@@ -98,7 +98,7 @@ export const BUILTIN_APPS = [
   { slug: "activity", name: "Activity Monitor", icon: "/icons/activity.png", description: "Live CPU, memory, energy, disk and network for this desktop and its server." },
   { slug: "textedit", name: "TextEdit", icon: "/icons/textedit.png", description: "Rich and plain text documents, saved into your files." },
   { slug: "settings", name: "System Settings", icon: "/icons/settings.png", description: "Appearance, wallpaper, dock, displays, notifications, users, privacy and everything else about this Mac." },
-  { slug: "terminal", name: "Terminal", icon: "/icons/terminal.png", description: "A zsh style shell over your apps and their data." },
+  { slug: "terminal", name: "Linux", icon: "/icons/linux.png", description: "A real Linux in your browser. The macOS-style shell over your apps and their data is one click away." },
   { slug: "browser", name: "Safari", icon: "/icons/browser.png", description: "Browse the web. Pages open through AI Mac in a sealed frame." },
   { slug: "keynote", name: "How It's Made", icon: "/icons/keynote.png", description: "A Keynote-style deck on how AI Mac works: architecture, the generation pipeline, the sandbox, the review loop." },
 ] as const;

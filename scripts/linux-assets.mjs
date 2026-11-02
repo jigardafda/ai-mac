@@ -2,7 +2,7 @@
 //  - the v86 engine, copied out of node_modules (it ships in the npm package), and
 //  - the Linux kernel image, downloaded once and checked against a pinned SHA-256.
 // The BIOS files are committed. Nothing here fails the build: without the kernel the
-// Terminal's `linux` command says the image is missing and everything else works.
+// Linux app falls back to its macOS-style shell and everything else works.
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -43,5 +43,5 @@ try {
   await rename(dest + ".part", dest);
   console.log("[linux] kernel ready");
 } catch (e) {
-  console.warn(`[linux] could not get the kernel (${e instanceof Error ? e.message : e}). The Terminal's Linux mode will be unavailable.`);
+  console.warn(`[linux] could not get the kernel (${e instanceof Error ? e.message : e}). The Linux app will fall back to its macOS-style shell.`);
 }

@@ -3,14 +3,14 @@ import { ensureSchema, sql } from "./db";
 /**
  * Each user has a small file system in Postgres: folders and text files under
  * a home with the usual macOS folders. Finder browses it, TextEdit edits it,
- * the Terminal lists and reads it. Paths are absolute and start with "/".
+ * the Linux app's macOS-style shell lists and reads it. Paths are absolute and start with "/".
  */
 export type FileRow = { path: string; name: string; kind: "file" | "folder"; content: string; mime: string; size: number; created_at: string; updated_at: string };
 
 const HOME_FOLDERS = ["Desktop", "Documents", "Downloads", "Movies", "Music", "Pictures", "Public"];
 const WELCOME = `Welcome to AI Mac
 
-This is your home folder. Finder shows it, TextEdit edits what is in it, and the Terminal can list it with ls and read it with cat.
+This is your home folder. Finder shows it, TextEdit edits what is in it, and the Linux app's macOS-style shell can list it with ls and read it with cat.
 
 Documents you save in TextEdit land in Documents. Files you move to the Trash sit in the Trash until you empty it.
 

@@ -17,22 +17,46 @@ const PROMPT = "[#$%] $";
 const READY = "__AIC_READY__";
 const READY_CMD = "echo __AIC_RE''ADY__";
 
+// Mac-style commands for the Linux shell. They talk to the desktop with a private escape sequence
+// (OSC 1337): the guest prints it, the page acts on it, and for open and ask the page then sends a
+// newline that the function is waiting for (echo off, so nothing shows).
+const MAC_COMMANDS = [
+  "alias ls='ls --color=auto'; alias ll='ls -lah'; alias l='ls -CF'",
+  "__osc() { printf '\\033]1337;%s=%s\\007' \"$1\" \"$(printf %s \"$2\" | base64 | tr -d '\\n')\"; }",
+  "__wait() { stty -echo; __osc \"$1\" \"$2\"; IFS= read -r _; stty echo; }",
+  "open() { [ $# -eq 0 ] && { echo 'usage: open <app name>'; return 1; }; __wait open \"$*\"; }",
+  "ask() { [ $# -eq 0 ] && { echo 'usage: ask <question>'; return 1; }; __wait ask \"$*\"; }",
+  "say() { __osc say \"$*\"; }",
+  "pbcopy() { __osc copy \"$(cat)\"; }",
+  "sw_vers() { printf 'ProductName:\\t\\tAI Mac\\nProductVersion:\\t1.0\\nBuildVersion:\\t\\tweb\\n'; }",
+].join("\n");
+
 /**
  * A real Linux 6.8 (i686) running in this window. The v86 emulator (BSD-2) runs a Buildroot kernel and
  * busybox shell; xterm.js draws its serial console. There is no network, and the disk is RAM, so
  * files are gone when the window closes. Nothing here touches the real machine.
  */
-export function LinuxConsole({ visible, onState }: { visible: boolean; onState: (s: "loading" | "ready" | "error") => void }) {
+/** What the Linux shell may ask of the desktop (open, ask): a Mac-style bridge, answered by the host. */
+export type Bridge = { open: (name: string) => string | null; ask: (prompt: string) => Promise<string> };
+
+export function LinuxConsole({ visible, onState, onSize, hostname, bridge }: { visible: boolean; hostname: string; bridge: Bridge; onSize: (cols: number, rows: number) => void; onState: (s: "loading" | "ready" | "error", why?: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const fit = useRef<{ fit: () => void; proposeDimensions: () => { cols: number; rows: number } | undefined } | null>(null);
   const [status, setStatus] = useState("Starting Linux…");
   const [error, setError] = useState("");
   const state = useRef({ onState });
   useEffect(() => { state.current.onState = onState; });
+  const bridgeRef = useRef(bridge);
+  useEffect(() => { bridgeRef.current = bridge; });
+  const onSizeRef = useRef(onSize);
+  useEffect(() => { onSizeRef.current = onSize; });
+  const hostRef = useRef(hostname); // the VM boots once; a later hostname change does not reboot it
+  useEffect(() => { hostRef.current = hostname; });
 
   useEffect(() => {
     let dead = false;
     let emu: Emulator | null = null;
+    const emulatorRef = { current: null as Emulator | null };
     let cleanup = () => {};
 
     (async () => {
@@ -51,6 +75,7 @@ export function LinuxConsole({ visible, onState }: { visible: boolean; onState: 
           fontSize: 11,
           cursorBlink: true,
           scrollback: 5000,
+          macOptionIsMeta: true, // Option+arrows move by word, as in Terminal.app
           theme: { background: "#ffffff", foreground: "#000000", cursor: "#000000", selectionBackground: "#b4d5fe",
             black: "#000000", red: "#c41a16", green: "#00a600", yellow: "#999900", blue: "#0000b2", magenta: "#b200b2", cyan: "#00a6b2", white: "#bfbfbf",
             brightBlack: "#666666", brightRed: "#e50000", brightGreen: "#00d900", brightYellow: "#b3b300", brightBlue: "#0000ff", brightMagenta: "#e500e5", brightCyan: "#00e5e5", brightWhite: "#e5e5e5" },
@@ -60,6 +85,27 @@ export function LinuxConsole({ visible, onState }: { visible: boolean; onState: 
         term.open(host.current);
         fit.current = fitAddon;
         fitAddon.fit();
+        onSizeRef.current(term.cols, term.rows);
+
+        // Terminal.app habits: Cmd+K clears, Cmd+C copies a selection, Cmd+V pastes (xterm does that itself).
+        term.attachCustomKeyEventHandler((e) => {
+          if (e.type !== "keydown" || !e.metaKey) return true;
+          if (e.key === "k") { term.clear(); return false; }
+          if (e.key === "c" && term.hasSelection()) { navigator.clipboard?.writeText(term.getSelection()).catch(() => {}); return false; }
+          return true;
+        });
+        const decode = (b64: string) => { try { return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))); } catch { return ""; } };
+        // The guest's Mac-style commands arrive here: OSC 1337 ; name = base64(text)
+        term.parser.registerOscHandler(1337, (data) => {
+          const i = data.indexOf("=");
+          const cmd = data.slice(0, i), arg = decode(data.slice(i + 1));
+          const release = () => emulatorRef.current?.serial0_send("\n");
+          if (cmd === "open") { const err = bridgeRef.current.open(arg); if (err) term.write(`\r\n\x1b[31m${err}\x1b[0m\r\n`); release(); }
+          else if (cmd === "ask") { bridgeRef.current.ask(arg).then((t) => term.write(`\r\n${t.replace(/\n/g, "\r\n")}\r\n`)).catch(() => term.write("\r\nask: could not reach the model\r\n")).finally(release); }
+          else if (cmd === "say") { try { speechSynthesis.speak(new SpeechSynthesisUtterance(arg)); } catch { /* no voices */ } }
+          else if (cmd === "copy") { navigator.clipboard?.writeText(arg).catch(() => {}); }
+          return true;
+        });
 
         // The VM boots behind a short "booting" message; its own boot log is hidden.
         let booted = false;
@@ -84,6 +130,7 @@ export function LinuxConsole({ visible, onState }: { visible: boolean; onState: 
           disable_speaker: true,
         });
         emu = emulator;
+        emulatorRef.current = emulator;
 
         emulator.add_listener("download-progress", ((e: { file_name: string; loaded: number; total: number }) => {
           if (booted || !e.total) return;
@@ -100,12 +147,13 @@ export function LinuxConsole({ visible, onState }: { visible: boolean; onState: 
             if (!primed && new RegExp(PROMPT).test(tail)) {
               primed = true;
               setStatus("Setting up the shell…");
-              emulator.serial0_send(`${size()}export PS1='\\[\\e[1;32m\\]root@linux\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]# '; ${READY_CMD}\n`);
+              emulator.serial0_send(`export TERM=xterm-256color\n${MAC_COMMANDS}\n`);
+              emulator.serial0_send(`${size()}hostname ${hostRef.current}; export PS1='\\[\\e[1;32m\\]\\u@\\h\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]# '; ${READY_CMD}\n`);
               tail = "";
             } else if (tail.includes(`${READY}\r\n`)) {
               booted = true;
               term.write("\x1bc");
-              term.write("\x1b[1mLinux 6.8.12 (i686)\x1b[0m, running in your browser. No network; files are kept in RAM.\r\nTry: uname -a, ls /, cat /proc/cpuinfo, free\r\n\r\n");
+              term.write("\x1b[1mWelcome to Linux 6.8.12 (i686)\x1b[0m on AI Mac, running in your browser.\r\nNo network, and files are kept in RAM. Try: uname -a, ls /, cat /proc/cpuinfo, free\r\n\r\n");
               emulator.serial0_send("\n");
               setStatus("");
               state.current.onState("ready");
@@ -125,6 +173,7 @@ export function LinuxConsole({ visible, onState }: { visible: boolean; onState: 
           resizeTimer = window.setTimeout(() => {
             if (!host.current || host.current.offsetWidth === 0) return;
             fitAddon.fit();
+            onSizeRef.current(term.cols, term.rows);
             if (booted && /[#$%] $/.test(tail.replace(/\x1b\[[0-9;]*m/g, ""))) emulator.serial0_send(`\x15${size()}\n`);
           }, 150);
         });
@@ -132,7 +181,7 @@ export function LinuxConsole({ visible, onState }: { visible: boolean; onState: 
 
         cleanup = () => { window.clearTimeout(resizeTimer); ro.disconnect(); input.dispose(); if (raf) cancelAnimationFrame(raf); term.dispose(); };
       } catch (e) {
-        if (!dead) { setError(e instanceof Error ? e.message : "Could not start Linux."); state.current.onState("error"); }
+        if (!dead) { const why = e instanceof Error ? e.message : "Could not start Linux."; setError(why); state.current.onState("error", why); }
       }
     })();
 

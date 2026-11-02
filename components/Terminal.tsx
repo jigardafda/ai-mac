@@ -9,7 +9,8 @@ type Props = { user: { id: number; email: string; name?: string }; apps: AppRow[
 type Line = { text: string; kind?: "in" | "err" };
 
 /**
- * A zsh-looking shell over a virtual disk: your apps live in /Applications and
+ * The Linux app. It opens into a real Linux (LinuxConsole); this file is also the macOS-style shell
+ * behind its "← macOS shell" button: a zsh-looking shell over a virtual disk: your apps live in /Applications and
  * on the Desktop, their saved records under ~/Documents/<app>/<key>.json.
  * Nothing here touches the real machine. `linux` boots a real Linux in the same window (LinuxConsole).
  */
@@ -22,16 +23,22 @@ export function Terminal({ user, apps, hostname, onOpen, onClose, onTitle }: Pro
   const [hist, setHist] = useState<string[]>([]);
   const [hi, setHi] = useState(-1);
   const [busy, setBusy] = useState(false);
-  const [linuxOn, setLinuxOn] = useState(false); // booted once; kept alive while the window is open
-  const [mode, setMode] = useState<"mac" | "linux">("mac");
+  // The Terminal opens straight into Linux; the macOS-style shell is one click away, and is what you get if Linux cannot start.
+  const [linuxOn, setLinuxOn] = useState(true); // kept alive while the window is open
+  const [mode, setModeState] = useState<"mac" | "linux">("linux");
+  const setMode = (m: "mac" | "linux") => { modeRef.current = m; setModeState(m); };
   const [linuxState, setLinuxState] = useState<"loading" | "ready" | "error">("loading");
   const macTitle = `${name} — -zsh — 80×24`;
+  const host = hostname.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30) || "ai-mac";
+  const sizeRef = useRef("80×24");
+  const modeRef = useRef<"mac" | "linux">("linux");
+  const linuxTitle = `root@${host} — -sh — ${sizeRef.current}`;
   const cache = useRef<Record<string, Record<string, unknown>>>({});
   const box = useRef<HTMLDivElement>(null);
   const inp = useRef<HTMLInputElement>(null);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- set once; onTitle is a fresh closure every render
-  useEffect(() => { onTitle(macTitle); }, [name]);
+  useEffect(() => { onTitle(linuxTitle); }, [name]);
   useEffect(() => { box.current?.scrollTo(0, box.current.scrollHeight); }, [lines, busy]);
 
   const prompt = `${name}@${hostname} ${cwd === home ? "~" : cwd.startsWith(home + "/") ? "~" + cwd.slice(home.length) : cwd} %`;
@@ -98,7 +105,7 @@ Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
     switch (c) {
       case "help": case "man": return print(HELP);
       case "clear": return setLines([]);
-      case "linux": { setLinuxOn(true); setMode("linux"); onTitle("root@linux — ttyS0 — 80×24"); return; }
+      case "linux": { setLinuxOn(true); setMode("linux"); onTitle(linuxTitle); return; }
       case "pwd": return print(cwd);
       case "whoami": return print(name);
       case "hostname": return print(`${hostname}.local`);
@@ -146,11 +153,18 @@ Your apps are in /Applications; their saved records are in ~/Documents/<app>/.`;
     <div className={styles.wrap}>
     {linuxOn ? (
       <div className={styles.linuxBar} style={{ display: mode === "linux" ? undefined : "none" }}>
-        <span>Linux 6.8.12 · i686 · {linuxState === "ready" ? "running" : linuxState === "error" ? "stopped" : "starting"}</span>
+        <span>Linux 6.8.12 on AI Mac · i686 · {linuxState === "ready" ? "running" : linuxState === "error" ? "stopped" : "starting"}</span>
         <button onClick={() => { setMode("mac"); onTitle(macTitle); setTimeout(() => inp.current?.focus(), 0); }}>← macOS shell</button>
       </div>
     ) : null}
-    {linuxOn ? <LinuxConsole visible={mode === "linux"} onState={setLinuxState} /> : null}
+    {linuxOn ? <LinuxConsole hostname={host} visible={mode === "linux"} onSize={(c, r) => { sizeRef.current = `${c}×${r}`; if (modeRef.current === "linux") onTitle(`root@${host} — -sh — ${c}×${r}`); }}
+      bridge={{
+        open: (n) => { const a = findApp(n.replace(/^-a\s+/, "")); if (!a) return `open: ${n}: no such app`; onOpen(a.slug); return null; },
+        ask: async (q) => { const r = await fetch("/api/system/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: q }) }); const j = await r.json().catch(() => ({})); return r.ok ? j.text : `ask: ${j.error || "failed"}`; },
+      }} onState={(s, why) => {
+      setLinuxState(s);
+      if (s === "error") { setMode("mac"); setLinuxOn(false); onTitle(macTitle); print(`linux: ${why || "could not start"}. Using the macOS shell.`, "err"); }
+    }} /> : null}
     <div className={styles.term} ref={box} style={{ display: mode === "mac" ? undefined : "none" }} onClick={() => inp.current?.focus()}>
       {lines.map((l, i) => <div key={i} className={`${styles.line} ${l.kind === "err" ? styles.err : ""} ${l.kind === "in" ? styles.in : ""}`}>{l.text || " "}</div>)}
       {busy ? <div className={styles.line}>…</div> : (

@@ -5,7 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Added
-- A real Linux in the Terminal: type `linux` to boot a Linux 6.8 (i686) kernel and busybox shell in the window, running in the browser through the v86 emulator. No network, RAM disk, no special headers. See `THIRD_PARTY_NOTICES.md` for licences.
+- A real Linux: the Terminal app is now **Linux** (penguin icon) and opens straight into a Linux 6.8 (i686) kernel and busybox shell, running in the browser through the v86 emulator, with the macOS-style shell one click away (and as the fallback if the image is missing). Mac-style commands work inside it (`open`, `pbcopy`, `say`, `ask`, `sw_vers`), and Cmd+K, Cmd+C and Option-as-Meta behave as in Terminal.app. No network, RAM disk, no special headers. See `THIRD_PARTY_NOTICES.md` for licences.
 - AI Mac logo, favicon and Apple touch icon; the logo is on the sign-in card and in the menu bar.
 - Open-source project files: MIT license, contributing guide, code of conduct, security policy, issue and pull request templates, CI, CodeQL and Dependabot.
 - README rewritten with screenshots, a tour GIF, an architecture diagram and a quick start.
