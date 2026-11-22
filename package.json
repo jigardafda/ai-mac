@@ -14,11 +14,11 @@
   "dependencies": {
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
-    "jose": "^6.2.14",
-    "next": "^16.4.3",
-    "openai": "^7.47.0",
-    "playwright": "^1.64.1",
-    "postgres": "^4.0.0",
+    "jose": "^6.2.18",
+    "next": "^16.4.6",
+    "openai": "^7.60.0",
+    "playwright": "^1.65.1",
+    "postgres": "^4.1.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "v86": "0.5.473"
@@ -27,8 +27,8 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^10.14.0",
-    "eslint-config-next": "^16.4.3",
+    "eslint": "^10.15.0",
+    "eslint-config-next": "^16.4.6",
     "typescript": "^6.0.3"
   },
   "engines": {
